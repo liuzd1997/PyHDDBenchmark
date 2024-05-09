@@ -23,21 +23,29 @@ bibliography: paper.bib
 
 # Summary
 The HDD Python package is ...
+Derived from Atsumi's work in MATLAB ...
+Changes made in Python due to ...
 
-# Background
-The data capacity of the hard disk drive (HDD) must increase to meet the demands for data storage. As a result, we must improve the positioning accuracy of the magnetic head in the HDD for a better future. 
+
 
 # Statement of need
-We translate MATLAB based benchmark problems (Magnetic-head positioning control system in HDDs - File Exchange - MATLAB Central (mathworks.com)) into Python based programs. Now we can use Python to simulate the magnetic-head positioning control system used in the latest HDDs.
-Developed on: Python 3.10.0
-Packages: numpy 1.23.4, control 0.9.4, scipy 1.11.3, matplotlib 3.7.0
+We translated MATLAB based benchmark problems (Magnetic-head positioning control system in HDDs - File Exchange - MATLAB Central (mathworks.com)) into a Python-based package. Development of the package in Python extends the usage for simulating the magnetic-head positioning control system in the latest HDDs. The increasing data capacity requirements of hard disk drives motivates improvements in the positioning accuracy of the magnetic head for future advancements in data storage.
+
+Previous research have leveraged the MATLAB version of the HDD package, including research conducted by [Muto and Uchimura](https://www.sciencedirect.com/science/article/pii/S2405896323022401), who proposed a recurrent neural netowrk based (RNN-based) reinforcement learning (RL) solution for HDD control. One of the methods in this study was to to transform the RNN-based controller into a state-space linear controller to ensure stability. Implementing the RNN-based RL solution improved the system performance by 5.8% compared to the original benchmark. [Yabui et al.](https://www.sciencedirect.com/science/article/pii/S2405896323011874) developed an adaptive feedforward cancellation (AFC) control to address repeatable runout (RRO) in the tracks of the disk. RRO has the potential to distort the track shape on the disks, affecting overall system performance. By implementing this control system, Yabui et all. independently controlled synchronous and asynchronous RRO, thereby eliminating any interdependencies that could potentially impact the system response. The AFC controller successfully increased the minimum distance in adjacent tracks by 2nm. [Ouyang and Chen](https://asmedigitalcollection.asme.org/lettersdynsys/article/3/2/021010/1166908/A-Recursive-System-Identification-With-Non-Uniform) utilized the HDD benchmark package as one of the applications in their study on system identification. Their approach focused on non-uniformly sampled system identification based on recursive least-squares (RLS) and coprime collaborative sensing. Results from this study demonstrate that the algorithm effectively tracks fast systems beyond the Nyquist frequencies of multiple slow sensors. 
+
+These examples highlight the diverse applications and extensions of studies related to HDD control, indicating a growing demand for its utilization.
 
 # Features & Functionality
 will fill in as code is near completion
+main section, include
+* Results
+* Function description
+* Issues for future improvements?
 
-# Function Description?
 
 # Dependencies and Environment Setup
+Developed on: Python 3.10.0<br>
+Packages: numpy 1.23.4, control 0.9.4, scipy 1.11.3, matplotlib 3.7.0
 ## Environment Requirements
 This project is compatible with Python 3.11.0 and was tested with specific package versions:
 * numpy 1.23.4
