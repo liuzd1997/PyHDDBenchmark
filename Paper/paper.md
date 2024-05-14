@@ -36,29 +36,15 @@ Previous research have leveraged the MATLAB version of the HDD package, includin
 These examples highlight the diverse applications and extensions of studies related to HDD control, indicating a growing demand for its utilization.
 
 # Features & Functionality
-will fill in as code is near completion
-main section, include
-* Results
-* Function description
-* Issues for future improvements?
+This software is used to simulate the magnetic-head positioning control system.  The magnetic head consists of a voice coil motors (VCM) and a PZT actuator. Figure \ref{fig:ControlBlockDiagram} shows the control block diagram of magnetic-head positioning control system, where $P_{cv}$ is the VCM in conyinuous-time system, $P_{cp}$ is the PZT actuator in continuous-time system, $C_{dv}$ is the feedback controller for VCM, $C_{dp}$ is the feedback controller for PZT actuator, $F_{mv}$ is the multi-rate filter for VCM, $F_{mp}$ is the multi-rate filter for PZT actuator, $I_p$ is the interpolator, $H_m$ is the multi-rate zero-order hold, $S$ is the samper, $d_p$ is the fan-induced vibration, $d_f$ is the rotational vibration, $d_{PRO}$ is the repeatable run-out (PRO), $y_c$ is the head position in continuous time, $y_d$ is the head position in descrete time, and $y_{cp} is the displacement of PZT actuator.  
 
+\begin{figure}
+\centering
+\includegraphics[width=0.8\textwidth]{./Figures/ControlBlockDiagram.jpg}
+\caption{Block diagram of magnetic-head positioning control system.}
+\label{fig:ControlBlockDiagram}
+\end{figure}
 
-# Dependencies and Environment Setup
-Developed on: Python 3.10.0<br>
-Packages: numpy 1.23.4, control 0.9.4, scipy 1.11.3, matplotlib 3.7.0
-## Environment Requirements
-This project is compatible with Python 3.11.0 and was tested with specific package versions:
-* numpy 1.23.4
-* control 0.9.4
-* scipy 1.11.3
-* matplotlib 3.7.0
-## Setting up the Environment
-Follow these steps to prepare the environment for running the simulations and analyses:
-1. Download and Unzip:
-  * Download the code package and extract its contents.
-1. Install Dependencies:
-  * Use pip to install the necessary Python packages:<br>
-  ````pip install -r requirements.txt````
 
 # Example Use Cases
 A selection of system models has been made available for reference. These models can be found in Plant.py, in which the system is used in Plot_Control_System.py and Function_Simulation.py. A total of 9 cases of this system have been included for users to explore. Users can create their own system by defining approximate continuous-time systems, examples being any of the 9 use cases, or adjust the VCM and PZT parameters as indicated in the subsection ‘Plant parameter’.
