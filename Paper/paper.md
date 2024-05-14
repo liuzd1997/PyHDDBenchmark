@@ -22,9 +22,9 @@ bibliography: paper.bib
 ---
 
 # Summary
-The HDD Python package is ...
-Derived from Atsumi's work in MATLAB ...
-Changes made in Python due to ...
+The data capacity of the hard disk drive (HDD) must increase to meet the demands for data storage. As a result, improving the positioning accuracy of the magnetic head in the HDD is essential for a better future. Simulating is a highly efficient method for studying HDD control systems. This project establishes a magnetic-head positioning control system for HDD, including plants, feedback controllers and multi-rate filters for voice coil motors (VCMs) and PZT actuators, while considering the disturbances caused by repeatable run-out (RRO), rotational vibration (RV), and fan-induced vibration. In addition, this project provides 9 different cases to represent the different characteristics under different temperature conditions (low temperature, room temperature, and high temperature) and different PZT actuator's gain (± 5%).
+The organization and content of this repository are inspired by a Matlab reference structure [@Takenori2024Magnetic], designed to enhance the navigability and understanding of Hard Disk Drive (HDD) benchmark problem simulations and their analyses.
+
 
 
 
@@ -36,42 +36,28 @@ Previous research have leveraged the MATLAB version of the HDD package, includin
 These examples highlight the diverse applications and extensions of studies related to HDD control, indicating a growing demand for its utilization.
 
 # Features & Functionality
-This software is used to simulate the magnetic-head positioning control system.  The magnetic head consists of a voice coil motors (VCM) and a PZT actuator. Figure \ref{fig:ControlBlockDiagram} shows the control block diagram of magnetic-head positioning control system, where $P_{cv}$ is the VCM in conyinuous-time system, $P_{cp}$ is the PZT actuator in continuous-time system, $C_{dv}$ is the feedback controller for VCM, $C_{dp}$ is the feedback controller for PZT actuator, $F_{mv}$ is the multi-rate filter for VCM, $F_{mp}$ is the multi-rate filter for PZT actuator, $I_p$ is the interpolator, $H_m$ is the multi-rate zero-order hold, $S$ is the samper, $d_p$ is the fan-induced vibration, $d_f$ is the rotational vibration, $d_{PRO}$ is the repeatable run-out (PRO), $y_c$ is the head position in continuous time, $y_d$ is the head position in descrete time, and $y_{cp} is the displacement of PZT actuator.  
+This software is used to simulate the magnetic-head positioning control system.  The magnetic head consists of a voice coil motors (VCM) and a PZT actuator. Figure \autoref{fig:ControlBlockDiagram} shows the control block diagram of magnetic-head positioning control system, where $P_{cv}$ is the VCM in conyinuous-time system, $P_{cp}$ is the PZT actuator in continuous-time system, $C_{dv}$ is the feedback controller for VCM, $C_{dp}$ is the feedback controller for PZT actuator, $F_{mv}$ is the multi-rate filter for VCM, $F_{mp}$ is the multi-rate filter for PZT actuator, $I_p$ is the interpolator, $H_m$ is the multi-rate zero-order hold, $S$ is the samper, $d_p$ is the fan-induced vibration, $d_f$ is the rotational vibration, $d_{PRO}$ is the repeatable run-out (PRO), $y_c$ is the head position in continuous time, $y_d$ is the head position in descrete time, and $y_{cp} is the displacement of PZT actuator. As for the disturbances in the system, $d_{PRO}$ is the oscillation of target tracks written on the disk, $d_f$ is the external vibration caused by other HDDs in a storage box, $d_p$ is the external vibration caused by cooling fans in a storage box.
 
-\begin{figure}
-\centering
-\includegraphics[width=0.8\textwidth]{./Figures/ControlBlockDiagram.jpg}
-\caption{Block diagram of magnetic-head positioning control system.}
-\label{fig:ControlBlockDiagram}
-\end{figure}
+![Block diagram of magnetic-head positioning control system. \label{fig:ControlBlockDiagram}](./Figures/ControlBlockDiagram.jpg){width=60%}
+
+A total of 9 cases of this system have been included for users to explore. 
+
+| Case No. | 1          | 2          | 3          | 4          | 5          | 6          |      7     |      8     | 9          |
+| :----:   | :----:     | :----:     | :----:     | :----:     | :----:     | :----:     | :----:     | :----:     | :----:     |
+| Temp.    | LT         | RT         | HT         | LT         | RT         | HT         | LT         | RT         | HT         |
+| PZT gain | Nominal    | Nominal    | Nominal    | Nominal+5% | Nominal+5% | Nominal+5% | Nominal-5% | Nominal-5% | Nominal-5% |
+
+The controlled object has vatiations due to temperature dependencies of mechanical resonant frequencies:
+- LT (low temperature): +4% VCM nominal values, +6% PZT nominal values.
+- RT (room temperature): same as nominal models.
+- HT (high temperature): -4% VCM nominal values, -6% PZT nominal values.
+
+Users can create their own system by defining approximate continuous-time systems, examples being any of the 9 use cases, or adjust the VCM and PZT parameters. And the parameters of the nominal controlled object are shown in [@atsumi2019quadruple]
 
 
-# Example Use Cases
-A selection of system models has been made available for reference. These models can be found in Plant.py, in which the system is used in Plot_Control_System.py and Function_Simulation.py. A total of 9 cases of this system have been included for users to explore. Users can create their own system by defining approximate continuous-time systems, examples being any of the 9 use cases, or adjust the VCM and PZT parameters as indicated in the subsection ‘Plant parameter’.
 
-Parameters of the nominal controlled object are shown in the following paper.
-T. Atsumi and S. Yabui, “Quadruple-Stage Actuator System for Magnetic-Head Positioning System in HDDs,”
-The IEEE Transactions on Industrial Electronics, Vol. 67, No. 11, pp. 9184-9194, (2020-11)
-
-The use cases in this example system analyze temperature dependencies of mechanical resonant frequencies. They are summarized as follows:
-Case 1: LT (low temperature), +4% VCM nominal values, +6% PZT nominal values
-Case 2: RT (room temperature)
-Case 3: HT (high temperature), -4% VCM nominal values, -6% PZT nominal values
-Case 4: +5% Case 1 nominal values
-Case 5: +5% Case 2 nominal values
-Case 6: +5% Case 3 nominal values
-Case 7: -5% Case 1 nominal values
-Case 8: -5% Case 2 nominal values
-Case 9: -5% Case 3 nominal values
-
-Numerical data from the example system include: 
-Data_RRO.txt: d_RRO（Repeatable Run-Out), oscillation of target tracks written on the disk.
-Data_Cd: Feedback controllers. Data is translated from mat file Data_Cd.mat. 
-In Tools.py, functions get_Sys_Cd_vcm and get_Sys_Cd_pzt.
-In Function_Simulation.py, defined as variables Sys_Cd_vcm and Sys_Cd_pzt.
-Data_Fm: Multi-rate filters. Data is translated from mat file Data_Fm.mat. 
-In Tools.py, functions get_Sys_Fm_vcm and get_Sys_Fm_pzt.
-In Function_Simulation.py, defined as variables Sys_Fm_vcm and Sys_Fm_pzt.
+# Description of the software
+`plant.py` specifies the dynamics of the plant being simulated. `function_simulation.py` executes HDD simulations based on scenarios defined in `plant.py` and saves the outputs to a designated folder. This process may be time-consuming. `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files. `plot_control_system.py` visualizes the frequency responses of the control system. `utils.py` includes additional data definitions and utility functions supporting the simulations. `Data_RRO.txt` stores Repeatable Run-Out (RRO) data for function simulation. `Fre_Resp.json` contains frequency response data.
 
 # Acknowledgements
 
