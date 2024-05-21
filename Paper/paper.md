@@ -2,7 +2,7 @@
 title: 'Magnetic-Head Positioning Control System in HDDs - Python Version'
 tags:
   - Python
-  - dard disk drive servo control
+  - hard disk drive servo control
   - positioning control
 
 authors:
