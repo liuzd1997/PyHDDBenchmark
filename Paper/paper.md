@@ -36,7 +36,7 @@ Previous research have leveraged the MATLAB version of the HDD package, includin
 These examples highlight the diverse applications and extensions of studies related to HDD control, indicating a growing demand for its utilization.
 
 # Features & Functionality
-This software is used to simulate the magnetic-head positioning control system.  The magnetic head consists of a voice coil motors (VCM) and a PZT actuator, as shown in Figure \autoref{fig:HDD}. 
+This software is used to simulate the magnetic-head positioning control system. The magnetic head consists of a voice coil motors (VCM) and a PZT actuator, as shown in Figure \autoref{fig:HDD}. 
 
 ![HDD structure. \label{fig:HDD}](./Figures/HDD.jpg){width=60%}
 
@@ -56,7 +56,7 @@ The controlled object has vatiations due to temperature dependencies of mechanic
 - RT (room temperature): same as nominal models.
 - HT (high temperature): -4% VCM nominal values, -6% PZT nominal values.
 
-Users can create their own system by defining approximate continuous-time systems, examples being any of the 9 use cases, or adjust the VCM and PZT parameters. And the parameters of the nominal controlled object are shown in [@atsumi2019quadruple]
+Users can create their own system by defining approximate continuous-time systems, examples being any of the 9 use cases, or adjust the VCM and PZT parameters. And the parameters of the nominal controlled object are shown in [@atsumi2019quadruple].
 
 
 
@@ -68,6 +68,16 @@ Users can create their own system by defining approximate continuous-time system
 - `utils.py` includes additional data definitions and utility functions supporting the simulations. 
 - `Data_RRO.txt` stores RRO data for function simulation. 
 - `Fre_Resp.json` contains frequency response data.
+
+Some exmaple results are shown in Figures \autoref{fig:Pc_pzt} to \autoref{fig:dRRO}. Figure \autoref{fig:Pc_pzt} and Figure \autoref{fig:Pc_vcm} show the frequency response of PZT actuator and VCM, respectively. Figure \autoref{fig:Multi-rate_filter} presents the multi-rate filters of PZT actuator and VCM. Figure \autoref{fig:Amplitude_spectrum_of_yc} illustrates the amplitude spectrum of the head position. Figures \autoref{fig:Amplitude_spectrum_of_df} and \autoref{fig:Amplitude_spectrum_of_dp} display the amplitude spectrum of the rotational vibration and fan-induced vibration, respectively. Finally, Figure \autoref{fig:dRRO} shows the amplitude of the repeatable run-out.
+
+![Frequency response of PZT actuator. \label{fig:Pc_pzt}](./Figures/Frequency_Response_of_Pc_pzt.png){width=60%}
+![Frequency response of VCM. \label{fig:Pc_vcm}](./Figures/Frequency_Response_of_Pc_vcm.png){width=60%}
+![Multi-rate filters of PZT actuator and VCM. \label{fig:Multi-rate_filter}](./Figures/Multi-rate_filter.png){width=60%}
+![Amplitude spectrum of the head position. \label{fig:Amplitude_spectrum_of_yc}](./Figures/Amplitude_spectrum_of_yc.png){width=60%}
+![Amplitude spectrum of the rotational vibration. \label{fig:Amplitude_spectrum_of_df}](./Figures/Amplitude_spectrum_of_df.png){width=60%}
+![Amplitude spectrum of the fan-induced vibration. \label{fig:Amplitude_spectrum_of_dp}](./Figures/Amplitude_spectrum_of_dp.png){width=60%}
+![Amplitude of the repeatable run-out. \label{fig:dRRO}](./Figures/dRRO.png){width=60%}
 
 # Acknowledgements
 
