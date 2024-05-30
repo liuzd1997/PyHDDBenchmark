@@ -91,6 +91,8 @@ To engage with the project's simulation and plotting functionalities, execute th
     ```bash
     python function_simulation.py
     ```
+    Please note that the simulation's execution time may vary depending on your hardware specifications. It could take several minutes to complete.
+    Once the simulation has finished running, you can proceed with plotting the results.
 
   - To visualize frequency responses, execute:
     ```bash
@@ -102,4 +104,6 @@ To engage with the project's simulation and plotting functionalities, execute th
     python simulate_trackfollow.py
     ```
 
-  - all code execution outputs to the plot_result subdirectory. This can be set in utils.py
+## Simulation Output Directory
+
+Note: All the code execution results, including plots and data files, will be saved in the **`plot_result`** subdirectory by default. If you wish to change the output directory, you can modify the corresponding setting in the `utils.py` file.
