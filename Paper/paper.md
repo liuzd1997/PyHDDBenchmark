@@ -32,12 +32,12 @@ authors:
     affiliation: "1"
 
   - name: Thomas Chu
-    orcid: 
+    orcid: 0009-0006-8157-8745
     equal-contrib: true
     affiliation: "1"
 
   - name: Xu Chen
-    orcid: 
+    orcid: 0000-0002-4604-5744
     corresponding: true
     affiliation: "1"
 
