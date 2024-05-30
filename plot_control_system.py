@@ -14,6 +14,8 @@ Sys_Fm_pzt = get_Sys_Fm_pzt()
 
 # Function to create controlled objects (Discrete-time system)
 def create_controlled_objects(Sys_Pc_vcm, Sys_Pc_pzt):
+    # Convert the continuous-time VCM plant model to discrete-time using Zero-Order Hold (ZOH) method
+    # with a sampling time of Ts/Mr_f, where Ts is the overall sampling time and Mr_f is the multi-rate factor
     Sys_Pdm0_vcm = matlab.c2d(Sys_Pc_vcm, Ts/Mr_f, 'zoh')
     Sys_Pdm_vcm = Sys_Pdm0_vcm * Sys_Fm_vcm
     Sys_Pd_vcm = dts_resampling(Sys_Pdm_vcm, Mr_f)
