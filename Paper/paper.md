@@ -44,7 +44,7 @@ authors:
 affiliations:
  - name: Mechatronics, Automation, and Control Systems Laboratory, University of Washington, Seattle, USA
    index: 1
-date: 1 May 2024
+date: 30 May 2024
 bibliography: paper.bib
 ---
 
