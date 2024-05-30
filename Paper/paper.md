@@ -88,7 +88,7 @@ Users can create their own system by defining approximate continuous-time system
 
 
 
-# Description of the software
+# Description of the Software
 - `plant.py` specifies the dynamics of the plant being simulated. 
 - `function_simulation.py` executes HDD simulations based on scenarios defined in `plant.py` and saves the outputs to a designated folder. This process may be time-consuming. 
 - `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files, and it gives the results of amplitude specturm of $d_f$, $d_p$, and $d_{RRO}$, the output displacement $y_{cp}$ and $y_c$. 
