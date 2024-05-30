@@ -23,6 +23,12 @@ def get_sim_path(fname):
     return os.path.join(os.getcwd(), os.path.join(simulation_cache_folder_name, fname))
 
 def get_Sys_Cd_pzt():
+    """
+    Get the state-space representation of the PZT controller.
+
+    Returns:
+        control.StateSpace: The state-space representation of the PZT controller.
+    """
     
     A = np.array([[-0.9378, 0.01655, 0.0803, 0.0885, -0.05877],
                   [0, 1.124, -0.7196, 0.3411, -0.2265],
@@ -46,6 +52,12 @@ def get_Sys_Cd_pzt():
 
 
 def get_Sys_Cd_vcm():
+    """
+    Get the state-space representation of the VCM controller.
+
+    Returns:
+        control.StateSpace: The state-space representation of the VCM controller.
+    """
     
     A = np.array([[0.3698, -0.1788, 0, 0.06347, 0.07123, 0.0108, 0.1905, -0.007906, 0.3993],
                   [0.4453, 0.9419, 0, 0.02063, 0.02315, 0.003512, 0.06192, -0.00257, 0.1298],
@@ -77,6 +89,12 @@ def get_Sys_Cd_vcm():
 
 
 def get_Sys_Fm_pzt():
+    """
+    Get the state-space representation of the PZT multi-rate filter.
+
+    Returns:
+        control.StateSpace: The state-space representation of the PZT multi-rate filter.
+    """
     
     A = np.array([[1.088, -0.8294, -0.0265, 0.1441, 0.1051, 0.2489, 0.1747, 0.24, 0.06976, 0.09637],
                   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -110,6 +128,12 @@ def get_Sys_Fm_pzt():
 
 
 def get_Sys_Fm_vcm():
+    """
+    Get the state-space representation of the VCM multi-rate filter.
+
+    Returns:
+        control.StateSpace: The state-space representation of the VCM multi-rate filter.
+    """
     
     A = np.array([[1.82, -0.9386, -0.01716, 0.01955, -0.02081, 0.03475, -0.0347, 0.07612, -0.0244, 0.1173, 0.007164, 0.08666, 0.00505, 0.04144, 0.01156, 0.04172, 0.04099, 0.07872, 0.03279, 0.04083, 0.0405, 0.04084, 0.0389, 0.03774],
                   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -171,6 +195,15 @@ def get_Sys_Fm_vcm():
     return matlab.ss(A, B, C, D, Ts)
 
 def dts_resampling(sys, n):
+    """
+    Resample a discrete-time system by a factor of n.
+    Args:
+        sys (control.StateSpace): The discrete-time system to be resampled.
+        n (int): The resampling factor.
+
+    Returns:
+        control.StateSpace: The resampled discrete-time system.
+    """
     A = np.array(sys.A)
     B = np.array(sys.B)
     C = np.array(sys.C)
@@ -186,6 +219,15 @@ def dts_resampling(sys, n):
 
 
 def freqresp(sys_list, freq):
+    """
+    Calculate the frequency response of a list of systems.
+    Args:
+        sys_list (list or control.StateSpace): A list of systems or a single system.
+        freq (numpy.ndarray): The frequency points at which to evaluate the frequency response.
+
+    Returns:
+        numpy.ndarray: The frequency response of the systems.
+    """
 
     if isinstance(sys_list, list):
         pass
@@ -204,6 +246,15 @@ def freqresp(sys_list, freq):
 
 
 def get_Freq_Resp(file_name, Fr_Resp_Type):
+    """
+    Get the frequency response data from a JSON file.
+    Args:
+        file_name (str): The name of the JSON file containing the frequency response data.
+        Fr_Resp_Type (list): The types of frequency responses to retrieve.
+
+    Returns:
+        dict: A dictionary containing the frequency response data.
+    """
     Fr_Resp_all = {}
 
     with open(file_name, 'r') as f:
@@ -227,6 +278,16 @@ def get_Freq_Resp(file_name, Fr_Resp_Type):
 
 
 def Freq_Resp_Plot(Fr_Resp_all_Mag, Fr_Resp_all_Phase, Freq, name, phase_range=(-360, 90), save_path=None):
+    """
+    Plot the frequency response (magnitude and phase) of multiple systems.
+    Args:
+        Fr_Resp_all_Mag (numpy.ndarray): The magnitude of the frequency responses.
+        Fr_Resp_all_Phase (numpy.ndarray): The phase of the frequency responses.
+        Freq (numpy.ndarray): The frequency points.
+        name (str): The name of the plot.
+        phase_range (tuple, optional): The range of the phase plot. Defaults to (-360, 90).
+        save_path (str, optional): The path to save the plot. Defaults to None.
+    """
 
     title = name
 
@@ -295,6 +356,14 @@ def Freq_Resp_Plot(Fr_Resp_all_Mag, Fr_Resp_all_Phase, Freq, name, phase_range=(
 
 
 def Nyquist_Plot(Fr_Resp_all_real, Fr_Resp_all_imag, title, save_path=None):
+    """
+    Plot the Nyquist plot of multiple systems.
+    Args:
+    Fr_Resp_all_real (list): The real part of the frequency responses.
+    Fr_Resp_all_imag (list): The imaginary part of the frequency responses.
+    title (str): The title of the plot.
+    save_path (str, optional): The path to save the plot. Defaults to None.
+    """
 
     fig, ax = plt.subplots(1,2, sharex='col', figsize = (24, 12))
     fig.suptitle(title, fontsize=22, weight='bold', family='Times New Roman')
@@ -375,6 +444,14 @@ def Nyquist_Plot(Fr_Resp_all_real, Fr_Resp_all_imag, title, save_path=None):
 
 
 def Sensitive_Function_Plot(Fr_Resp_all_Mag, Freq, name, save_path=None):
+    """
+    Plot the sensitivity function of multiple systems.
+    Args:
+    Fr_Resp_all_Mag (numpy.ndarray): The magnitude of the sensitivity functions.
+    Freq (numpy.ndarray): The frequency points.
+    name (str): The name of the plot.
+    save_path (str, optional): The path to save the plot. Defaults to None.
+    """
 
     title = name
 
@@ -415,7 +492,18 @@ def Sensitive_Function_Plot(Fr_Resp_all_Mag, Freq, name, save_path=None):
 
 
 def Multi_Rate_Filter_Plot(Fr_Resp_1_Mag, Fr_Resp_1_Phase, Fr_Resp_2_Mag, Fr_Resp_2_Phase, Freq, name, save_path=None):
+    """
+    Plot the frequency response (magnitude and phase) of two multi-rate filters.
 
+    Args:
+        Fr_Resp_1_Mag (numpy.ndarray): The magnitude of the first multi-rate filter's frequency response.
+        Fr_Resp_1_Phase (numpy.ndarray): The phase of the first multi-rate filter's frequency response.
+        Fr_Resp_2_Mag (numpy.ndarray): The magnitude of the second multi-rate filter's frequency response.
+        Fr_Resp_2_Phase (numpy.ndarray): The phase of the second multi-rate filter's frequency response.
+        Freq (numpy.ndarray): The frequency points.
+        name (str): The name of the plot.
+        save_path (str, optional): The path to save the plot. Defaults to None.
+    """
     title = name
 
     fig, ax = plt.subplots(2,1, sharex='col', figsize = (16, 12))
@@ -462,8 +550,11 @@ def Multi_Rate_Filter_Plot(Fr_Resp_1_Mag, Fr_Resp_1_Phase, Fr_Resp_2_Mag, Fr_Res
     ax2.yaxis.set_major_locator(y_major_locator)
     plt.ylim(-180, 180)
 
+    # Plot the phase of the first multi-rate filter's frequency response
     l, = ax2.plot(Freq, Fr_Resp_1_Phase)
     l1.append(l)
+    
+    # Plot the phase of the second multi-rate filter's frequency response
     l, = ax2.plot(Freq, Fr_Resp_2_Phase)
     l1.append(l)
 
