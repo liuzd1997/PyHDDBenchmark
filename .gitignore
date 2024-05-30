@@ -6,8 +6,10 @@
 
 # Ignore specific directories
 data/
-results/
+plot_results/
 
 # Ignore specific files
 config.ini
-secrets.txt
+Data_RRO.txt
+
+.DS_Store
