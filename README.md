@@ -1,4 +1,4 @@
-# Magnetic-Head Positioning Control System in HDDs - Python Version
+# A Python-Based Framework for Magnetic-Head Positioning Control Systems in Hard Disk Drives
 
 This project serves as a Python adaptation of the Hard Disk Drive Servo Control Benchmark: "Magnetic-head Positioning Control System in HDDs," authored by Takenori Atsumi in MATLAB under the Investigating R&D Committee on “Precision Servo Technology for High Value-Added Mechatronic System,” The Institute of Electrical Engineers of Japan.  The Matlab source material can be found on the MATLAB Central File Exchange, uploaded in 2024, and is available through the following link: [Magnetic-head Positioning Control System in HDDs](https://www.mathworks.com/matlabcentral/fileexchange/111515-magnetic-head-positioning-control-system-in-hdds).
 
