@@ -107,10 +107,10 @@ To engage with the project's simulation and plotting functionalities, execute th
     ```bash
     python plot_control_system.py
     ```
-    or
+    <!-- or
     ```bash
     python plot_control_system.py
-    ```
+    ``` -->
 
   - To compare the frequency responses between the reduced-order plants and the original plants of PZT actuator and VCM, execute:
     ```bash
