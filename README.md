@@ -5,7 +5,6 @@ This project serves as a Python adaptation of the Hard Disk Drive Servo Control 
 The adaptation is inspired by and based on the research and methodologies outlined in the reference paper by T. Atsumi and S. Yabui, titled "Quadruple-Stage Actuator System for Magnetic-Head Positioning System in HDDs." This paper was published in The IEEE Transactions on Industrial Electronics, Volume 67, Issue 11, on pages 9184-9194, in November 2020. The DOI for this paper is: 10.1109/TIE.2019.2955432 and is supported by the Investigating R&D Committee on “Precision Servo Technology for High Value-Added Mechatronic System”, The Institute of Electrical Engineers of Japan.
 
 
-
 ## Repository Structure 
 
     .
@@ -82,8 +81,13 @@ This project is compatible with Python 3.11.0 and was tested with specific packa
 
 Follow these steps to prepare the environment for running the simulations and analyses:
 
-1. **Download and Unzip:**
+1. **Clone the repository:**
    - Download the code package and extract its contents.
+   - ```bash
+      https://github.com/macs-lab/PyHDDBenchmark.git
+      cd PyHDDBenchmark
+    ```
+
 
 2. **Install Dependencies:**
    - Use pip to install the necessary Python packages:
@@ -107,7 +111,7 @@ To engage with the project's simulation and plotting functionalities, execute th
     ```bash
     python plot_control_system.py
     ```
-    or
+    or disturbance observer
     ```bash
     python plot_control_system_with_DOB.py
     ``` 
@@ -125,3 +129,40 @@ To engage with the project's simulation and plotting functionalities, execute th
 ## Simulation Output Directory
 
 Note: All the code execution results, including plots and data files, will be saved in the **`plot_result`** subdirectory and the **`plot_result_ReducedOrder`** subdirectoryby default. If you wish to change the output directory, you can modify the corresponding setting in the `utils.py` file.
+
+## Key Features
+
+1. **Multi-resonance high-precision actuator models:**
+   - Detailed Voice Coil Motor (VCM) and Piezoelectric (PZT) actuator models
+   - Captures multiple resonance modes for accurate system representation
+   - Based on [Horowitz et al. (2007)](https://doi.org/10.1016/j.conengprac.2006.09.001)
+
+2. **Rich disturbance modeling:**
+   - Repeatable Run-Out (RRO): Oscillation of target tracks on the disk
+   - Rotational Vibration (RV): External vibration from other HDDs
+   - Fan-induced Vibration: Vibration caused by cooling fans
+   - Disturbance models based on [Guo and Zhang (2003)](https://doi.org/10.1109/TMAG.2003.815548)
+
+3. **Decoupled sensitivity loop shaping:**
+   - Implements the decoupled sensitivity design approach
+   - Allows separate controller design for VCM and PZT stages
+   - Based on [Li and Horowitz (2001)](https://doi.org/10.1109/3516.928724)
+
+4. **Disturbance Observer (DOB) design:**
+   - Functionality for designing and implementing disturbance observers
+   - Improves system's disturbance rejection capabilities
+   - Inspired by [Wu et al. (2003)](https://doi.org/10.1109/TIE.2003.819658)
+
+5. **Temperature and gain variation modeling:**
+   - Nine pre-configured cases for different operational conditions
+   - Temperature variations: Low, Room, and High temperatures
+   - PZT actuator gain variations: Nominal, +5%, and -5%
+   - Based on [Atsumi et al. (2019)](https://doi.org/10.1109/TIE.2019.2955432)
+
+6. **Reduced-order modeling:**
+   - Tools for creating and analyzing reduced-order system models
+   - Useful for control design and system analysis
+   - Inspired by [Boettcher et al. (2010)](https://doi.org/10.1299/jamdsm.4.107)
+## Contact
+
+For questions or feedback, please contact chx@uw.edu
