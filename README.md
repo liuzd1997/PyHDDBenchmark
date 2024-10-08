@@ -88,7 +88,6 @@ Follow these steps to prepare the environment for running the simulations and an
       cd PyHDDBenchmark
     ```
 
-
 2. **Install Dependencies:**
    - Use pip to install the necessary Python packages:
      ```bash
@@ -135,13 +134,13 @@ Note: All the code execution results, including plots and data files, will be sa
 1. **Multi-resonance high-precision actuator models:**
    - Detailed Voice Coil Motor (VCM) and Piezoelectric (PZT) actuator models
    - Captures multiple resonance modes for accurate system representation
-   - Based on [Horowitz et al. (2007)](https://doi.org/10.1016/j.conengprac.2006.09.001)
+   - Based on [Horowitz et al. (2007)](https://doi.org/10.1016/j.conengprac.2006.09.003)
 
 2. **Rich disturbance modeling:**
    - Repeatable Run-Out (RRO): Oscillation of target tracks on the disk
    - Rotational Vibration (RV): External vibration from other HDDs
    - Fan-induced Vibration: Vibration caused by cooling fans
-   - Disturbance models based on [Guo and Zhang (2003)](https://doi.org/10.1109/TMAG.2003.815548)
+   - Disturbance models based on [Guo and Zhang (2003)](https://doi.org/10.1109/TMAG.2003.814287)
 
 3. **Decoupled sensitivity loop shaping:**
    - Implements the decoupled sensitivity design approach
