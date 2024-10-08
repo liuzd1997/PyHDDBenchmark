@@ -115,13 +115,14 @@ Freq_Resp_Plot(Fr_L_mag, Fr_L_phase, f, title, (-360,0), save_path)
 
 # Fr_L Nyquist Plot
 save_path = get_plot_path("figure17_Openloop(Nyquist Plot).png")
+title = 'Openloop(Nyquist Plot)'
 for i in range(f.shape[0]):
     if f[i] > 1/Ts/2:
         index = i
         break 
 Fr_L_real = np.real(((Fr_L).T)[:, :index]).tolist()
 Fr_L_imag = np.imag(((Fr_L).T)[:, :index]).tolist()
-Nyquist_Plot(Fr_L_real, Fr_L_imag, save_path)
+Nyquist_Plot(Fr_L_real, Fr_L_imag, title, save_path)
 
 # Fr_Pd_vcm_all
 save_path = get_plot_path("figure18_Sensitive_Function.png")

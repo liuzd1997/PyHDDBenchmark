@@ -93,11 +93,16 @@ Users can create their own system by defining approximate continuous-time system
 - `function_simulation.py` executes HDD simulations based on scenarios defined in `plant.py` and saves the outputs to a designated folder. This process may be time-consuming. 
 - `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files, and it gives the results of amplitude specturm of $d_f$, $d_p$, and $d_{RRO}$, the output displacement $y_{cp}$ and $y_c$. 
 - `plot_control_system.py` visualizes the frequency responses of the control system. 
+- `plot_control_system_with_DOB.py` adds the desigen of the disturbance observer (DOB) based on `plot_control_system.py`.
 - `utils.py` includes additional data definitions and utility functions supporting the simulations. 
+- `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
+- `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the original control system. 
 - `Data_RRO.txt` stores RRO data for function simulation. 
 - `Fre_Resp.json` contains frequency response data.
 
-Some exmaple results are shown in Figures \autoref{fig:Pc_pzt} to \autoref{fig:dRRO}. Figure \autoref{fig:Pc_pzt} and Figure \autoref{fig:Pc_vcm} show the frequency response of PZT actuator and VCM, respectively. Figure \autoref{fig:Multi-rate_filter} presents the multi-rate filters of PZT actuator and VCM. Figure \autoref{fig:Amplitude_spectrum_of_yc} illustrates the amplitude spectrum of the head position. Figures \autoref{fig:Amplitude_spectrum_of_df} and \autoref{fig:Amplitude_spectrum_of_dp} display the amplitude spectrum of the rotational vibration and fan-induced vibration, respectively. Finally, Figure \autoref{fig:dRRO} shows the amplitude of the repeatable run-out.
+Some exmaple results are shown in Figures \autoref{fig:Pc_pzt} to \autoref{fig:dRRO}. Figure \autoref{fig:Pc_pzt} and Figure \autoref{fig:Pc_vcm} show the frequency response of PZT actuator and VCM, respectively. Figure \autoref{fig:Multi-rate_filter} presents the multi-rate filters of PZT actuator and VCM. Figure \autoref{fig:Amplitude_spectrum_of_yc} illustrates the amplitude spectrum of the head position. Figures \autoref{fig:Amplitude_spectrum_of_df} and \autoref{fig:Amplitude_spectrum_of_dp} display the amplitude spectrum of the rotational vibration and fan-induced vibration, respectively. Figure \autoref{fig:dRRO} shows the amplitude of the repeatable run-out.
+
+Figure \autoref{fig:reduced_oder_Pc_pzt} and Figure \autoref{fig:reduced_oder_Pc_vcm} show the comparison results of the frequency responses between the reduced-order plants and the original plants of PZT actuator and VCM, respectively. Finally, Figure \autoref{fig:DOB_Pc_vcm} shows the disturbance estimation using DOB of VCM. 
 
 ![Frequency response of PZT actuator. \label{fig:Pc_pzt}](./Figures/Frequency_Response_of_Pc_pzt.png){width=60%}
 ![Frequency response of VCM. \label{fig:Pc_vcm}](./Figures/Frequency_Response_of_Pc_vcm.png){width=60%}
@@ -106,7 +111,9 @@ Some exmaple results are shown in Figures \autoref{fig:Pc_pzt} to \autoref{fig:d
 ![Amplitude spectrum of the rotational vibration. \label{fig:Amplitude_spectrum_of_df}](./Figures/Amplitude_spectrum_of_df.png){width=60%}
 ![Amplitude spectrum of the fan-induced vibration. \label{fig:Amplitude_spectrum_of_dp}](./Figures/Amplitude_spectrum_of_dp.png){width=60%}
 ![Amplitude of the repeatable run-out. \label{fig:dRRO}](./Figures/dRRO.png){width=60%}
-
+![Comparison of the frequency responses between the reduced-order plant and the original plant of the PZT. \label{fig:reduced_oder_Pc_pzt}](./Figures/Frequency_Response_of_reduced_order_Pc_pzt.png){width=60%}
+![Comparison of the frequency responses between the reduced-order plant and the original plant of the VCM. \label{fig:reduced_oder_Pc_vcm}](./Figures/Frequency_Response_of_reduced_order_Pc_vcm.png){width=60%}
+![The disturbance observer of the VCM. \label{fig:DOB_Pc_vcm}](./Figures/Disturbance_Observer_of_Pc_vcm.png){width=60%}
 # Acknowledgements
 
 
