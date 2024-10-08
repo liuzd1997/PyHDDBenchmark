@@ -2,6 +2,9 @@ import numpy as np
 from utils import *
 import plant
 from control import matlab
+import print_ASCII as pa
+# prints ASCII art of the system
+pa.print_system()
 
 Ts = plant.Ts
 Mr_f = plant.Mr_f
@@ -11,6 +14,7 @@ Sys_Cd_pzt = get_Sys_Cd_pzt()
 Sys_Cd_vcm = get_Sys_Cd_vcm()
 Sys_Fm_vcm = get_Sys_Fm_vcm()
 Sys_Fm_pzt = get_Sys_Fm_pzt()
+
 
 # Function to create controlled objects (Discrete-time system)
 def create_controlled_objects(Sys_Pc_vcm, Sys_Pc_pzt):

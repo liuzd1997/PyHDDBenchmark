@@ -1,15 +1,12 @@
 # Ignore compiled Python files
 *.pyc
-
 # Ignore log files
 *.log
-
 # Ignore specific directories
 data/
+results/
 plot_results/
-
 # Ignore specific files
 config.ini
 Data_RRO.txt
-
 .DS_Store
