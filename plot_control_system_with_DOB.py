@@ -5,6 +5,9 @@ import plant
 import control as co
 from control import matlab
 from scipy import signal
+import print_ASCII as pa
+# prints ASCII art of the system
+pa.print_system()
 
 Ts = plant.Ts
 Mr_f = plant.Mr_f

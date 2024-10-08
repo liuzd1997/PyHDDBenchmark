@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 import utils
 import plant
 import sys
-
+import print_ASCII as pa
+# prints ASCII art of the system
+pa.print_system()
 Tp = 5.2697e-8  # 482 kTPI
 Ts = plant.Ts  # get Ts from the plant parameters
 
