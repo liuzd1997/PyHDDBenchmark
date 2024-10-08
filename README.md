@@ -83,10 +83,10 @@ Follow these steps to prepare the environment for running the simulations and an
 
 1. **Clone the repository:**
    - Download the code package and extract its contents.
-   - ```bash
+      ```bash
       https://github.com/macs-lab/PyHDDBenchmark.git
       cd PyHDDBenchmark
-    ```
+      ```
 
 2. **Install Dependencies:**
    - Use pip to install the necessary Python packages:
