@@ -441,6 +441,7 @@ def Nyquist_Plot(Fr_Resp_all_real, Fr_Resp_all_imag, title, save_path=None):
     
     if save_path != None:
         plt.savefig(save_path)
+    plt.show() 
 
 
 def Sensitive_Function_Plot(Fr_Resp_all_Mag, Freq, name, save_path=None):

@@ -26,7 +26,12 @@ The adaptation is inspired by and based on the research and methodologies outlin
     ├── license.txt
     ├── plant.py
     ├── plot_control_system.py
+    ├── plot_control_system_with_DOB.py
     ├── plot_result
+    │   ├── ... Figures
+    ├── reduce_order_compare.py
+    ├── reduced_order_system.py
+    ├── plot_result_ReducedOrder
     │   ├── ... Figures
     │ 
     ├── requirements.txt
@@ -42,10 +47,14 @@ The adaptation is inspired by and based on the research and methodologies outlin
 - `plant.py`: Specifies the dynamics of the plant being simulated.
 - `utils.py`: Includes additional data definitions and utility functions supporting the simulations.
 - `plot_control_system.py`: Visualizes the frequency responses of the control system.
+- `plot_control_system_with_DOB.py` adds the desigen of the disturbance observer (DOB) based on `plot_control_system.py`.
+- `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
+- `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the 
 - `simulate_trackfollow.py`: Displays simulation outcomes, requiring prior generation of simulation result files.
 
 #### Plot Results:
 - The `plot_result` folder houses various figures illustrating the frequency response and other analytical results of the simulations, such as amplitude spectra and Bode plots.
+- The `plot_result_ReducedOrder` folder houses various figures illustrating the frequency responses of the reduced-order system while comparing them with the original control system.
 
 #### Documentation and Other Files:
 - `README.md`: Provides an overview and instructions for utilizing the repository.
@@ -98,6 +107,15 @@ To engage with the project's simulation and plotting functionalities, execute th
     ```bash
     python plot_control_system.py
     ```
+    or
+    ```bash
+    python plot_control_system.py
+    ```
+
+  - To compare the frequency responses between the reduced-order plants and the original plants of PZT actuator and VCM, execute:
+    ```bash
+    python reduce_order_system.py
+    ```
 
   - For simulating the controller and visualizing the results, use the command:
     ```bash
@@ -106,4 +124,4 @@ To engage with the project's simulation and plotting functionalities, execute th
 
 ## Simulation Output Directory
 
-Note: All the code execution results, including plots and data files, will be saved in the **`plot_result`** subdirectory by default. If you wish to change the output directory, you can modify the corresponding setting in the `utils.py` file.
+Note: All the code execution results, including plots and data files, will be saved in the **`plot_result`** subdirectory and the **`plot_result_ReducedOrder`** subdirectoryby default. If you wish to change the output directory, you can modify the corresponding setting in the `utils.py` file.
