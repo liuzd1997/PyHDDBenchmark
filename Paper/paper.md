@@ -2,8 +2,10 @@
 title: 'A Python-Based Framework for Magnetic-Head Positioning Control Systems in Hard Disk Drives'
 tags:
   - Python
-  - hard disk drive servo control
-  - positioning control
+  - Hard disk drive servo control
+  - Positioning control
+  - System identification
+  - Disturbance rejection
 
 authors:
   - name: Amy Santoso
@@ -85,9 +87,38 @@ The controlled object has vatiations due to temperature dependencies of mechanic
 
 Users can create their own system by defining approximate continuous-time systems, examples being any of the 9 use cases, or adjust the VCM and PZT parameters. And the parameters of the nominal controlled object are shown in [@atsumi2019quadruple].
 
+Key features of the framework include:
 
+Multi-resonance high-precision voice coil motor and piezoelectric actuator models:
+The framework incorporates detailed models for both VCM and PZT actuators, capturing their complex dynamics including multiple resonance modes. These models are based on the work of Horowitz et al. (2007) [@Horowitz2007], which provides a comprehensive treatment of dual-stage servo systems in HDDs.
+
+Rich disturbance modeling:
+The system includes models for various disturbances that affect HDD performance:
+
+-Repeatable Run-Out (RRO): Oscillation of target tracks written on the disk
+-Rotational Vibration (RV): External vibration caused by other HDDs in a storage box
+-Fan-induced Vibration: External vibration caused by cooling fans in a storage box
+These disturbance models are based on the work of Guo and Zhang (2003) [@Guo2003], who developed feedforward control methods for reducing disk-flutter-induced track misregistration.
+
+Decoupled sensitivity loop shaping:
+The framework implements the decoupled sensitivity design approach, as described by Li and Horowitz (2001) [@Li2001]. This method allows for separate design of controllers for the VCM and PZT stages, simplifying the control system design process while maintaining overall system stability.
+Disturbance Observer (DOB) design:
+The package includes functionality for designing and implementing disturbance observers, which can significantly improve the system's ability to reject external disturbances. This feature is based on the work of Wu et al. (2003) [@Wu2003], who compared various resonance compensation approaches in dual-stage HDDs.
+Temperature and gain variation modeling:
+The framework provides nine pre-configured cases to represent different operational conditions:
+
+Temperature variations: Low (LT), Room (RT), and High (HT) temperatures
+PZT actuator gain variations: Nominal, +5%, and -5%
+This feature allows users to study the system's behavior under various environmental conditions, as discussed in Atsumi et al. (2019) [@atsumi2019quadruple].
+
+
+Reduced-order modeling:
+The package includes tools for creating and analyzing reduced-order models of the system, which can be useful for control design and system analysis. This functionality is inspired by the work of Boettcher et al. (2010) [@Boettcher2010] on modeling and control of dual-stage actuator HDDs.
+
+The framework is designed to be modular and extensible, allowing researchers to easily modify existing components or add new features to suit their specific research needs.
 
 # Description of the Software
+The software package comprises several Python modules, each serving specific functions in the simulation and analysis process:
 - `plant.py` specifies the dynamics of the plant being simulated. 
 - `function_simulation.py` executes HDD simulations based on scenarios defined in `plant.py` and saves the outputs to a designated folder. This process may be time-consuming. 
 - `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files, and it gives the results of amplitude specturm of $d_f$, $d_p$, and $d_{RRO}$, the output displacement $y_{cp}$ and $y_c$. 
