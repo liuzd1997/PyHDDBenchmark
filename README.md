@@ -47,7 +47,7 @@ The adaptation is inspired by and based on the research and methodologies outlin
 - `plant.py`: Specifies the dynamics of the plant being simulated.
 - `utils.py`: Includes additional data definitions and utility functions supporting the simulations.
 - `plot_control_system.py`: Visualizes the frequency responses of the control system.
-- `plot_control_system_with_DOB.py` adds the desigen of the disturbance observer (DOB) based on `plot_control_system.py`.
+- `plot_control_system_with_DOB.py` adds the design of the disturbance observer (DOB) based on `plot_control_system.py`.
 - `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
 - `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the 
 - `simulate_trackfollow.py`: Displays simulation outcomes, requiring prior generation of simulation result files.
