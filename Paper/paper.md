@@ -71,7 +71,7 @@ This software is used to simulate the magnetic-head positioning control system. 
 
 Figure \autoref{fig:ControlBlockDiagram} shows the control block diagram of magnetic-head positioning control system, where $P_{cv}$ is the VCM in conyinuous-time system, $P_{cp}$ is the PZT actuator in continuous-time system, $C_{dv}$ is the feedback controller for VCM, $C_{dp}$ is the feedback controller for PZT actuator, $F_{mv}$ is the multi-rate filter for VCM, $F_{mp}$ is the multi-rate filter for PZT actuator, $I_p$ is the interpolator, $H_m$ is the multi-rate zero-order hold, $S$ is the samper, $d_p$ is the fan-induced vibration, $d_f$ is the rotational vibration, $d_{RRO}$ is the repeatable run-out (RRO), $y_c$ is the head position in continuous time, $y_d$ is the head position in descrete time, and $y_{cp}$ is the displacement of PZT actuator. As for the disturbances in the system, $d_{RRO}$ is the oscillation of target tracks written on the disk, $d_f$ is the external vibration caused by other HDDs in a storage box, $d_p$ is the external vibration caused by cooling fans in a storage box.
 
-![Block diagram of magnetic-head positioning control system. \label{fig:ControlBlockDiagram}](./Figures/ControlBlockDiagram.jpg){width=60%}
+![Block diagram of magnetic-head positioning control system. \label{fig:ControlBlockDiagram}](./Figures/ControlBlockDiagram.png){width=60%}
 
 A total of 9 cases of this system have been included for users to explore. 
 
@@ -89,10 +89,10 @@ Users can create their own system by defining approximate continuous-time system
 
 Key features of the framework include:
 
-Multi-resonance high-precision voice coil motor and piezoelectric actuator models:
+## Multi-resonance high-precision VCM and PZT actuator models
 The framework incorporates detailed models for both VCM and PZT actuators, capturing their complex dynamics including multiple resonance modes. These models are based on the work of Horowitz et al. (2007) [@Horowitz2007], which provides a comprehensive treatment of dual-stage servo systems in HDDs.
 
-Rich disturbance modeling:
+## Rich disturbance modeling
 The system includes models for various disturbances that affect HDD performance:
 
 -Repeatable Run-Out (RRO): Oscillation of target tracks written on the disk
@@ -100,19 +100,19 @@ The system includes models for various disturbances that affect HDD performance:
 -Fan-induced Vibration: External vibration caused by cooling fans in a storage box
 These disturbance models are based on the work of Guo and Zhang (2003) [@Guo2003], who developed feedforward control methods for reducing disk-flutter-induced track misregistration.
 
-Decoupled sensitivity loop shaping:
+## Decoupled sensitivity loop shaping
 The framework implements the decoupled sensitivity design approach, as described by Li and Horowitz (2001) [@Li2001]. This method allows for separate design of controllers for the VCM and PZT stages, simplifying the control system design process while maintaining overall system stability.
-Disturbance Observer (DOB) design:
+## Disturbance Observer (DOB) design
 The package includes functionality for designing and implementing disturbance observers, which can significantly improve the system's ability to reject external disturbances. This feature is based on the work of Wu et al. (2003) [@Wu2003], who compared various resonance compensation approaches in dual-stage HDDs.
 Temperature and gain variation modeling:
 The framework provides nine pre-configured cases to represent different operational conditions:
 
-Temperature variations: Low (LT), Room (RT), and High (HT) temperatures
+## Temperature variations: Low (LT), Room (RT), and High (HT) temperatures
 PZT actuator gain variations: Nominal, +5%, and -5%
 This feature allows users to study the system's behavior under various environmental conditions, as discussed in Atsumi et al. (2019) [@atsumi2019quadruple].
 
 
-Reduced-order modeling:
+## Reduced-order modeling
 The package includes tools for creating and analyzing reduced-order models of the system, which can be useful for control design and system analysis. This functionality is inspired by the work of Boettcher et al. (2010) [@Boettcher2010] on modeling and control of dual-stage actuator HDDs.
 
 The framework is designed to be modular and extensible, allowing researchers to easily modify existing components or add new features to suit their specific research needs.
