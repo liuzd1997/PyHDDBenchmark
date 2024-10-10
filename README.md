@@ -141,6 +141,11 @@ Note: All the code execution results, including plots and data files, will be sa
       <img src="./Paper/Figures/Frequency_Response_of_Pc_pzt.png" style="zoom:20%"  alt="Frequency response of PZT actuator. \label{fig:Pc_pzt}"/>
       </div>
    - Captures multiple resonance modes for accurate system representation
+
+   - Efficient time- and frequency- domain analysis
+      <center class="half">
+      <img src="./plot_result/figure6_yc.png" style="zoom:50%"  alt="Head position in continuous time. \label{fig:head_pos}"/> <img src="./plot_result/figure7_Amplitude_spectrum_of_yc.png" style="zoom:50%"  alt="Frequency response of the head position. \label{fig:Freq_resp_pos}"/>
+      </center>
    
    - Based on [Horowitz et al. (2007)](https://doi.org/10.1016/j.conengprac.2006.09.003)
 
