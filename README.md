@@ -133,22 +133,50 @@ Note: All the code execution results, including plots and data files, will be sa
 
 1. **Multi-resonance high-precision actuator models:**
    - Detailed Voice Coil Motor (VCM) and Piezoelectric (PZT) actuator models
+      <br />
+      <div align="center">
+      <img src="./Paper/Figures/Frequency_Response_of_Pc_vcm.png" style="zoom:20%"  alt="Frequency response of VCM. \label{fig:Pc_vcm}"/>
+      </div>
+      <div align="center">
+      <img src="./Paper/Figures/Frequency_Response_of_Pc_pzt.png" style="zoom:20%"  alt="Frequency response of PZT actuator. \label{fig:Pc_pzt}"/>
+      </div>
    - Captures multiple resonance modes for accurate system representation
+   
    - Based on [Horowitz et al. (2007)](https://doi.org/10.1016/j.conengprac.2006.09.003)
 
 2. **Rich disturbance modeling:**
    - Repeatable Run-Out (RRO): Oscillation of target tracks on the disk
+      <br />
+      <div align="center">
+      <img src="./Paper/Figures/dRRO.png" style="zoom:50%"  alt="Amplitude of the repeatable run-out. \label{fig:dRRO}"/>
+      </div>
    - Rotational Vibration (RV): External vibration from other HDDs
+      <br />
+      <div align="center">
+      <img src="./Paper/Figures/Amplitude_spectrum_of_df.png" style="zoom:50%"  alt="Amplitude spectrum of the rotational vibration. \label{fig:Amplitude_spectrum_of_df}"/>
+      </div>
    - Fan-induced Vibration: Vibration caused by cooling fans
+      <br />
+      <div align="center">
+      <img src="./Paper/Figures/Amplitude_spectrum_of_dp.png" style="zoom:50%"  alt="Amplitude spectrum of the fan-induced vibration. \label{fig:Amplitude_spectrum_of_dp}"/>
+      </div>
    - Disturbance models based on [Guo and Zhang (2003)](https://doi.org/10.1109/TMAG.2003.814287)
 
 3. **Decoupled sensitivity loop shaping:**
    - Implements the decoupled sensitivity design approach
+      <br />
+      <div align="center">
+      <img src="./plot_result/figure18_Sensitive_Function.png" style="zoom:30%"  alt="Decoupled sensitivity function. \label{fig:sensitivity_function}"/>
+      </div>  
    - Allows separate controller design for VCM and PZT stages
    - Based on [Li and Horowitz (2001)](https://doi.org/10.1109/3516.928724)
 
 4. **Disturbance Observer (DOB) design:**
    - Functionality for designing and implementing disturbance observers
+      <br />
+      <div align="center">
+      <img src="./plot_result/figure19_The_Disturbance_Observer_of_Pc_vcm.png" style="zoom:80%"  alt="The disturbance estimation using DOB of VCM. \label{fig:DOB_VCM}"/>
+      </div> 
    - Improves system's disturbance rejection capabilities
    - Inspired by [Wu et al. (2003)](https://doi.org/10.1109/TIE.2003.819658)
 
@@ -157,9 +185,20 @@ Note: All the code execution results, including plots and data files, will be sa
    - Temperature variations: Low, Room, and High temperatures
    - PZT actuator gain variations: Nominal, +5%, and -5%
    - Based on [Atsumi et al. (2019)](https://doi.org/10.1109/TIE.2019.2955432)
+      | Case No. |    1    |    2    |    3    |     4      |     5      |     6      |     7      |     8      |     9      |
+      | :------: | :-----: | :-----: | :-----: | :--------: | :--------: | :--------: | :--------: | :--------: | :--------: |
+      |  Temp.   |   LT    |   RT    |   HT    |     LT     |     RT     |     HT     |     LT     |     RT     |     HT     |
+      | PZT gain | Nominal | Nominal | Nominal | Nominal+5% | Nominal+5% | Nominal+5% | Nominal-5% | Nominal-5% | Nominal-5% |
 
 6. **Reduced-order modeling:**
    - Tools for creating and analyzing reduced-order system models
+      <br />
+      <div align="center">
+      <img src="./Paper/Figures/Frequency_Response_of_reduced_order_Pc_pzt.png" style="zoom:20%"  alt="Comparison of the frequency responses between the reduced-order plant and the original plant of the PZT. \label{fig:reduced_oder_Pc_pzt}"/>
+      </div>
+      <div align="center">
+      <img src="./Paper/Figures/Frequency_Response_of_reduced_order_Pc_vcm.png" style="zoom:20%"  alt="Comparison of the frequency responses between the reduced-order plant and the original plant of the VCM. \label{fig:reduced_oder_Pc_pzt}"/>
+      </div> 
    - Useful for control design and system analysis
    - Inspired by [Boettcher et al. (2010)](https://doi.org/10.1299/jamdsm.4.107)
 ## Contact
