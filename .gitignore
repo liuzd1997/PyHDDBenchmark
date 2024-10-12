@@ -10,3 +10,12 @@ plot_results/
 config.ini
 Data_RRO.txt
 .DS_Store
+simulation_result/res1.pkl
+simulation_result/res2.pkl
+simulation_result/res3.pkl
+simulation_result/res4.pkl
+simulation_result/res5.pkl
+simulation_result/res6.pkl
+simulation_result/res7.pkl
+simulation_result/res8.pkl
+simulation_result/res9.pkl
