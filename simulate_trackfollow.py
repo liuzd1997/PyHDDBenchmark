@@ -32,6 +32,7 @@ plt.grid(True)
 plt.xlim([10, 1/Ts/2])
 plt.savefig(utils.get_plot_path("figure1_Amplitude_spectrum_of_df.png"))
 
+
 # Figure 2: Amplitude spectrum of dp
 plt.figure(2)
 plt.semilogx(sim_results[0]["freq"], 20 * np.log10(np.abs(sim_results[0]["Fr_dp"])))
