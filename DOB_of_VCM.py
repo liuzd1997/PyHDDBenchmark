@@ -11,6 +11,7 @@ import print_ASCII as pa
 # prints ASCII art of the system
 pa.print_system()
 
+#sampling time and Multi-rate number
 Ts = plant.Ts
 Mr_f = plant.Mr_f
 
