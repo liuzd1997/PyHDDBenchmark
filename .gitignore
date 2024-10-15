@@ -6,6 +6,7 @@
 data/
 results/
 plot_results/
+simulation_result/
 # Ignore specific files
 config.ini
 Data_RRO.txt
