@@ -85,7 +85,6 @@ print("Ts*420*1e3:", Ts*420*1e3)
 
 print("Discrete-time Plant:", Sys_Pd_vcm)
 P_nom = Sys_Pd_vcm
-cutoff_freq = 5
 w = 2 * np.pi * cutoff_freq
 low_pass_filter = signal.TransferFunction([w], [1, w])
 low_pass_filter_disc = signal.cont2discrete(([w], [1, w]), Ts, method='zoh')
@@ -98,9 +97,42 @@ den_disc = low_pass_filter_disc[1].flatten()
 # Create a control.TransferFunction for the discrete-time system
 low_pass_filter_tf = co.TransferFunction(num_disc, den_disc, Ts)
 print("Discrete-time Low-pass Filter for DOB:", low_pass_filter_tf)
+
+
+#P_nom_tf = co.ss2tf(P_nom)
+
+# Access the numerator and denominator from the transfer function
+#numerator = P_nom_tf.num[0][0]  # Extract the first (and usually only) element
+#denominator = P_nom_tf.den[0][0]
+#P_nom_inv = co.TransferFunction(denominator, numerator, Ts)  # 求名义模型的逆
+#print("Inverse of Nominal Model:", P_nom_inv)
+
+
+def get_regularized_inverse(P_nom, cutoff_freq):
+    # Convert the nominal plant to transfer function if it's not already
+    P_nom_tf = co.ss2tf(P_nom)
+
+    # Extract numerator and denominator
+    numerator = P_nom_tf.num[0][0]
+    denominator = P_nom_tf.den[0][0]
+
+    # Inverse of P_nom is simply flipping num and den
+    P_nom_inv = co.TransferFunction(denominator, numerator, Ts)
+
+    # Create low-pass filter to stabilize the inverse
+    w = 2 * np.pi * cutoff_freq
+    low_pass_filter = co.TransferFunction([w], [1, w], Ts)
+
+    # Multiply the inverse by the low-pass filter to regularize it
+    P_nom_inv_regularized = P_nom_inv * low_pass_filter
+
+    return P_nom_inv_regularized
+
+
+
 # Disturbance observer design
 
-def disturbance_observer(u, y, P_nom, low_pass_filter_tf):
+def disturbance_observer(u, y, P_nom, P_nom_inv, low_pass_filter_tf):
     # Estimating disturbance
     # Predict output based on nominal model
     y_nom = co.forced_response(P_nom, U=u, X0=0)[1]
@@ -108,8 +140,15 @@ def disturbance_observer(u, y, P_nom, low_pass_filter_tf):
     # Error between real and predicted output
     error = y - y_nom
     #print("error=",error)
+
+    error_decoupled = co.forced_response(P_nom_inv, U=error, X0=0)[1]
+
+    if np.any(np.isnan(error_decoupled)) or np.any(np.isinf(error_decoupled)):
+        print("Warning: NaN or Inf detected in error_decoupled. Applying filtering.")
+        error_decoupled = np.nan_to_num(error_decoupled) 
+
     # Estimate disturbance using low-pass filter
-    disturbance_estimated = co.forced_response(low_pass_filter_tf, U=error, X0=0)[1]
+    disturbance_estimated = co.forced_response(low_pass_filter_tf, U=error_decoupled, X0=0)[1]
     
     return disturbance_estimated
 
@@ -157,10 +196,11 @@ plt.title('Step response of VCM and VCM with disturbance')
 plt.show()
 
 
-
+P_nom_inv_regularized = get_regularized_inverse(P_nom, 5)
+print("P_nom_inv_regularized:", P_nom_inv_regularized)
 #print("y=",y)
 # Apply disturbance observer
-disturbance_estimated = disturbance_observer(u, y, Sys_Pd_vcm, low_pass_filter_tf)
+disturbance_estimated = disturbance_observer(u, y, Sys_Pd_vcm, P_nom_inv_regularized, low_pass_filter_tf)
 
 # Plot the results
 plt.figure()
