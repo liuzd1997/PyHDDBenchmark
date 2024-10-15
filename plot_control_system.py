@@ -3,6 +3,9 @@ from utils import *
 import plant
 from control import matlab
 import print_ASCII as pa
+import warnings
+# Suppress specific warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="control.lti")
 # prints ASCII art of the system
 pa.print_system()
 
@@ -59,7 +62,8 @@ Fr_L = Fr_L_vcm_all + Fr_L_pzt_all
 Fr_S = 1. / (1 + Fr_L)
 
 # Plot the Frequency Response of the system 
-
+# Suppress the specific UserWarning about mismatched handles and labels
+warnings.filterwarnings("ignore", message="Mismatched number of handles and labels")
 # Fr_Pc_vcm_all
 save_path = get_plot_path("figure9_The_Frequency_Response_of_Pc_vcm.png")
 title = 'The Frequency Response of $Pc_{vcm}$' 

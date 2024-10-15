@@ -4,6 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import os
+from matplotlib.ticker import MultipleLocator
+import pickle
+
+
 
 
 # make sure we have the output locations made
@@ -289,69 +293,45 @@ def Freq_Resp_Plot(Fr_Resp_all_Mag, Fr_Resp_all_Phase, Freq, name, phase_range=(
         save_path (str, optional): The path to save the plot. Defaults to None.
     """
 
-    title = name
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(24, 12))
+    fig.suptitle(name, fontsize=22, fontweight='bold', fontfamily='Times New Roman')
 
-    fig, ax = plt.subplots(2,1, sharex='col', figsize = (24, 12))
-    fig.suptitle(title, fontsize=22, weight='bold', family='Times New Roman')
-    plt.xticks(font={'family': 'Times New Roman', 'size' : 16, 'weight': 'bold'})
-    plt.yticks(font={'family': 'Times New Roman', 'size' : 16, 'weight': 'bold'})
-    plt.xscale('log')
-    l1 = []
-    l2 = []
-    label = []
+    # Common settings for both subplots
+    for ax in (ax1, ax2):
+        ax.set_xscale('log')
+        ax.tick_params(axis='both', which='major', labelsize=16)
+        ax.grid(True, which="both", ls="-", alpha=0.5)
 
-    for i in range(Fr_Resp_all_Mag.shape[0]):
-
-        Fr_Resp_Mag = Fr_Resp_all_Mag[i]
-        Fr_Resp_Phase = Fr_Resp_all_Phase[i]
-
-        # The setting of subfigure 1
-        ax1 = ax[0]
-        
-        ax1.set_ylabel("Gain [dB]", fontdict={'family': 'Times New Roman',
-                                                'size' : 18, 'weight': 'bold'}) 
-        
-        plt.sca(ax[0])
-        plt.yticks(font={'family': 'Times New Roman', 'size' : 16, 'weight': 'bold'})
-        
-        # The setting of subfigure 2
-        ax2 = ax[1]
-        
-        ax2.set_xlabel("Frequency [Hz]", fontdict={'family': 'Times New Roman',
-                                                'size' : 18, 'weight': 'bold'}) 
-        ax2.set_ylabel("Phase [deg.]", fontdict={'family': 'Times New Roman',
-                                                'size' : 18, 'weight': 'bold'})
-        
-        plt.sca(ax[1])
-        y_major_locator = plt.MultipleLocator(90)
-        ax2.yaxis.set_major_locator(y_major_locator)
-        plt.ylim(phase_range[0], phase_range[1])
-
-        if i > 5:
-
-            l, = ax1.plot(Freq, Fr_Resp_Mag, linestyle="--")
-            l1.append(l)
-
-            l, = ax2.plot(Freq, Fr_Resp_Phase, linestyle="--")
-            l2.append(l)
-
-        else:
-
-            l, = ax1.plot(Freq, Fr_Resp_Mag, linestyle="-")
-            l1.append(l)
-
-            l, = ax2.plot(Freq, Fr_Resp_Phase, linestyle="-")
-            l2.append(l)
-        
-        label.append('Case '+ str(i+1))
-    if len(l2)>1:  
-        ax2.legend(handles=l2, 
-                labels=label,
-                loc="lower left", 
-                prop={'family': 'Times New Roman', 'size': 16, 'weight': 'bold'}
-                )
+    # Magnitude plot
+    ax1.set_ylabel("Gain [dB]", fontsize=18, fontweight='bold', fontfamily='Times New Roman')
     
-    if save_path != None:
+    # Phase plot
+    ax2.set_xlabel("Frequency [Hz]", fontsize=18, fontweight='bold', fontfamily='Times New Roman')
+    ax2.set_ylabel("Phase [deg.]", fontsize=18, fontweight='bold', fontfamily='Times New Roman')
+    ax2.set_ylim(phase_range)
+    ax2.yaxis.set_major_locator(MultipleLocator(90))
+
+    lines = []
+    labels = []
+
+    num_cases = Fr_Resp_all_Mag.shape[0]
+
+    for i in range(num_cases):
+        linestyle = "--" if i > 5 else "-"
+        
+        l_mag, = ax1.plot(Freq, Fr_Resp_all_Mag[i], linestyle=linestyle)
+        ax2.plot(Freq, Fr_Resp_all_Phase[i], linestyle=linestyle, color=l_mag.get_color())
+        
+        lines.append(l_mag)
+        labels.append(f'Case {i+1}')
+
+    # Add legend to the lower subplot
+    ax2.legend(lines, labels, loc="lower left", 
+               prop={'family': 'Times New Roman', 'size': 16, 'weight': 'bold'})
+
+    plt.tight_layout()
+    
+    if save_path:
         plt.savefig(save_path)
 
 
