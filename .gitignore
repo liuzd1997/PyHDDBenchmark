@@ -1,12 +1,28 @@
 # Ignore compiled Python files
 *.pyc
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
 # Ignore log files
 *.log
+*.pot
+
 # Ignore specific directories
 data/
 results/
-plot_results/
+plot_result/
 simulation_result/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.cache
 # Ignore specific files
 config.ini
 Data_RRO.txt
