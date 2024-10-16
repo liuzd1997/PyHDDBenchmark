@@ -25,6 +25,7 @@ Sys_Fm_pzt = get_Sys_Fm_pzt()
 def create_controlled_objects(Sys_Pc_vcm, Sys_Pc_pzt):
     # Convert the continuous-time VCM plant model to discrete-time using Zero-Order Hold (ZOH) method
     # with a sampling time of Ts/Mr_f, where Ts is the overall sampling time and Mr_f is the multi-rate factor
+    # return a Ts sampling time VCM PZT model
 
     Sys_Pdm0_vcm = matlab.c2d(Sys_Pc_vcm, Ts/Mr_f, 'zoh')
     Sys_Pdm_vcm = Sys_Pdm0_vcm * Sys_Fm_vcm
@@ -38,7 +39,7 @@ def create_controlled_objects(Sys_Pc_vcm, Sys_Pc_pzt):
 
     return Sys_Pd_vcm, Sys_Pd_pzt
 
-# Create controlled objects for each case
+# Create controlled objects for each case 
 Sys_Pd_vcm_all = []
 Sys_Pd_pzt_all = []
 for i in range(1, 10):
@@ -66,6 +67,7 @@ except Exception as e:
 
 # Figure 20: dff
 plt.figure(20)
+# translate to ms and nm
 plt.plot(sim_results[0]["time"][1:420*20] * 1e3, sim_results[0]["df"][1:420*20] * 1e9)
 plt.title('$d_f$')
 plt.xlabel('Time [ms]')
@@ -127,7 +129,9 @@ u = np.ones_like(time) * 1  # Step input
 length_of_u = len(u)
 print("Length of u:", length_of_u)
 #desampling df, because the real time doesn't match with the length of time data point, which differ by 20 times
+
 df_data = sim_results[0]["df"][0:420*20]
+print(df_data.shape)
 df = df_data[::20]
 u_with_dis=df + u
 
