@@ -71,6 +71,7 @@ The software package comprises several Python modules, each serving specific fun
 - `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files, and it gives the results of amplitude specturm of $d_f$, $d_p$, and $d_{RRO}$, the output displacement $y_{cp}$ and $y_c$. 
 - `plot_control_system.py` visualizes the frequency responses of the control system. 
 - `plot_control_system_with_DOB.py` adds the desigen of the disturbance observer (DOB) based on `plot_control_system.py`.
+- `DOB_of_VCM.py` designs a disturbance observer (DOB) for the VCM.
 - `utils.py` includes additional data definitions and utility functions supporting the simulations. 
 - `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
 - `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the original control system. 
