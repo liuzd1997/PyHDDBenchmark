@@ -49,9 +49,9 @@ for i in range(1, 10):
     Sys_Pd_vcm_all.append(Sys_Pd_vcm)
     Sys_Pd_pzt_all.append(Sys_Pd_pzt)
 
+
+
 # Disturbance Observer (DOB) of P_VCM
-
-
 
 
 # Simulation
@@ -84,9 +84,9 @@ print("Ts*420*1e3:", Ts*420*1e3)
 
 
 
-
 print("Discrete-time Plant:", Sys_Pd_vcm)
 P_nom = Sys_Pd_vcm
+cutoff_freq = 5
 w = 2 * np.pi * cutoff_freq
 low_pass_filter = signal.TransferFunction([w], [1, w])
 low_pass_filter_disc = signal.cont2discrete(([w], [1, w]), Ts, method='zoh')
@@ -143,14 +143,15 @@ def disturbance_observer(u, y, P_nom, P_nom_inv, low_pass_filter_tf):
     error = y - y_nom
     #print("error=",error)
 
-    error_decoupled = co.forced_response(P_nom_inv, U=error, X0=0)[1]
+    error_inv = co.forced_response(P_nom_inv, U=error, X0=0)[1]
 
-    if np.any(np.isnan(error_decoupled)) or np.any(np.isinf(error_decoupled)):
+    if np.any(np.isnan(error_inv)) or np.any(np.isinf(error_inv)):
         print("Warning: NaN or Inf detected in error_decoupled. Applying filtering.")
-        error_decoupled = np.nan_to_num(error_decoupled) 
+        error_inv = np.nan_to_num(error_inv) 
 
+    disturbance_initial = error_inv-u
     # Estimate disturbance using low-pass filter
-    disturbance_estimated = co.forced_response(low_pass_filter_tf, U=error_decoupled, X0=0)[1]
+    disturbance_estimated = co.forced_response(low_pass_filter_tf, U=disturbance_initial, X0=0)[1]
     
     return disturbance_estimated
 
@@ -187,11 +188,8 @@ y = co.forced_response(Sys_Pd_vcm, T=time, U=u_with_dis)[1]
 
 plt.figure(23)
 
-# 
 plt.plot(time * 1e3, y_step_response, label="Step response of VCM")
 plt.plot(time * 1e3, y, label="Step response of VCM with disturbance", linestyle='--')
-
-# 添加图例和标签
 plt.xlabel('Time (ms)')
 plt.ylabel('Amplitude')
 plt.legend()
