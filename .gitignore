@@ -12,7 +12,6 @@ __pycache__/
 # Ignore specific directories
 data/
 results/
-plot_result/
 simulation_result/
 
 # Installer logs
