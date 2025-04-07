@@ -8,8 +8,10 @@ from scipy import signal
 import pickle
 import sys
 import print_ASCII as pa
+import matplotlib.pyplot as plt
 # prints ASCII art of the system
 pa.print_system()
+print("Running DOB for VCM v0.1.1")
 
 #sampling time and Multi-rate number
 Ts = plant.Ts
@@ -50,9 +52,7 @@ for i in range(1, 10):
     Sys_Pd_pzt_all.append(Sys_Pd_pzt)
 
 
-
 # Disturbance Observer (DOB) of P_VCM
-
 
 # Simulation
 # Load simulation results
@@ -65,154 +65,234 @@ except Exception as e:
     print("ERROR: Simulation files not found, have you run function_simulation.py first? exiting ...")
     sys.exit()
 
-# Figure 20: dff
+# Figure 20: df - Rotational Vibration
 plt.figure(20)
 # translate to ms and nm
 plt.plot(sim_results[0]["time"][1:420*20] * 1e3, sim_results[0]["df"][1:420*20] * 1e9)
-plt.title('$d_f$')
+plt.title('$d_f$ - Rotational Vibration')
 plt.xlabel('Time [ms]')
 plt.ylabel('Amplitude [nm]')
 plt.grid(True)
 plt.xlim([0, Ts*420*1e3])
-plt.savefig(utils.get_plot_path("figure20_df.png"))
+plt.savefig(utils.get_plot_path("figure20_df_rotational_vibration.png"))
 
 length_of_slice = len(sim_results[0]["time"][1:420*20])
 print("Length of sim_results[0]['time'][1:420*20]:", length_of_slice)
 
 print("Ts*420*1e3:", Ts*420*1e3)
 
+# Create a nominal plant model for DOB
+print("Using RT (Case 2) as nominal model")
+P_nom = Sys_Pd_vcm_all[1]  # Using RT (Case 2) as nominal model
 
-
-
-print("Discrete-time Plant:", Sys_Pd_vcm)
-P_nom = Sys_Pd_vcm
-cutoff_freq = 5
-w = 2 * np.pi * cutoff_freq
-low_pass_filter = signal.TransferFunction([w], [1, w])
-low_pass_filter_disc = signal.cont2discrete(([w], [1, w]), Ts, method='zoh')
-#low_pass_filter_disc = matlab.c2d(low_pass_filter, Ts, method='zoh')
-
-# Extract the numerator and denominator from the result of cont2discrete
-num_disc = low_pass_filter_disc[0].flatten()
-den_disc = low_pass_filter_disc[1].flatten()
-
-# Create a control.TransferFunction for the discrete-time system
-low_pass_filter_tf = co.TransferFunction(num_disc, den_disc, Ts)
-print("Discrete-time Low-pass Filter for DOB:", low_pass_filter_tf)
-
-
-#P_nom_tf = co.ss2tf(P_nom)
-
-# Access the numerator and denominator from the transfer function
-#numerator = P_nom_tf.num[0][0]  # Extract the first (and usually only) element
-#denominator = P_nom_tf.den[0][0]
-#P_nom_inv = co.TransferFunction(denominator, numerator, Ts)  # 求名义模型的逆
-#print("Inverse of Nominal Model:", P_nom_inv)
-
-
-def get_regularized_inverse(P_nom, cutoff_freq):
-    # Convert the nominal plant to transfer function if it's not already
-    P_nom_tf = co.ss2tf(P_nom)
-
-    # Extract numerator and denominator
-    numerator = P_nom_tf.num[0][0]
-    denominator = P_nom_tf.den[0][0]
-
-    # Inverse of P_nom is simply flipping num and den
-    P_nom_inv = co.TransferFunction(denominator, numerator, Ts)
-
-    # Create low-pass filter to stabilize the inverse
-    w = 2 * np.pi * cutoff_freq
-    low_pass_filter = co.TransferFunction([w], [1, w], Ts)
-
-    # Multiply the inverse by the low-pass filter to regularize it
-    P_nom_inv_regularized = P_nom_inv * low_pass_filter
-
-    return P_nom_inv_regularized
-
-
-
-# Disturbance observer design
-
-def disturbance_observer(u, y, P_nom, P_nom_inv, low_pass_filter_tf):
-    # Estimating disturbance
-    # Predict output based on nominal model
-    y_nom = co.forced_response(P_nom, U=u, X0=0)[1]
-    #print("y_nom=",y_nom)
-    # Error between real and predicted output
-    error = y - y_nom
-    #print("error=",error)
-
-    error_inv = co.forced_response(P_nom_inv, U=error, X0=0)[1]
-
-    if np.any(np.isnan(error_inv)) or np.any(np.isinf(error_inv)):
-        print("Warning: NaN or Inf detected in error_decoupled. Applying filtering.")
-        error_inv = np.nan_to_num(error_inv) 
-
-    disturbance_initial = error_inv-u
-    # Estimate disturbance using low-pass filter
-    disturbance_estimated = co.forced_response(low_pass_filter_tf, U=disturbance_initial, X0=0)[1]
-    
-    return disturbance_estimated
-
-
-# Simulate a simple disturbance rejection
+# Simulate the system with disturbance
 time = np.arange(0, Ts*420, Ts)  # Time vector
+print("Length of time vector:", len(time))
 
+# Step input
+u = np.ones_like(time)  
+print("Length of input vector:", len(u))
 
-print("time:", Ts*420)
-length_of_time = len(time)
-print("Length of time:", length_of_time)
+# Get disturbance signal (with proper resampling)
+df_data = sim_results[0]["df"][0:420*20]  # Original disturbance data
+df = df_data[::20]  # Downsample to match our time vector
+print("Length of disturbance vector:", len(df))
 
-u = np.ones_like(time) * 1  # Step input
+# Input with disturbance
+u_with_dis = u + df
 
-length_of_u = len(u)
-print("Length of u:", length_of_u)
-#desampling df, because the real time doesn't match with the length of time data point, which differ by 20 times
+# System response to input with disturbance
+y = co.forced_response(P_nom, T=time, U=u_with_dis)[1]
+print("Length of output vector:", len(y))
 
-df_data = sim_results[0]["df"][0:420*20]
-print(df_data.shape)
-df = df_data[::20]
-u_with_dis=df + u
+# Step response without disturbance for comparison
+y_step = co.forced_response(P_nom, T=time, U=u)[1]
 
-#u_with_dis=sim_results[0]["df"][0:420*20] + u
-
-y_step_response = co.forced_response(Sys_Pd_vcm, T=time, U=u)[1]
-
-#print("dis=",sim_results[0]["df"][0:420])
-#print("u=",u)
-#print("u_with_dis=",u_with_dis)
-#print("u_with_dis-u=",u_with_dis-u)
-# Simulated output (for simplicity, assume this is measured)
-y = co.forced_response(Sys_Pd_vcm, T=time, U=u_with_dis)[1]
-
+# Plot step responses with and without disturbance
 plt.figure(23)
-
-plt.plot(time * 1e3, y_step_response, label="Step response of VCM")
-plt.plot(time * 1e3, y, label="Step response of VCM with disturbance", linestyle='--')
+plt.plot(time * 1e3, y_step, label="Step response (no disturbance)")
+plt.plot(time * 1e3, y, label="Response with rotational vibration", linestyle='--')
 plt.xlabel('Time (ms)')
 plt.ylabel('Amplitude')
 plt.legend()
 plt.grid(True)
-plt.title('Step response of VCM and VCM with disturbance')
-plt.show()
+plt.title('System Response With and Without Rotational Vibration')
+plt.savefig(utils.get_plot_path("figure23_response_with_rotational_vibration.png"))
 
+# Plot error due to disturbance (magnify the difference)
+plt.figure(25)
+error_due_to_disturbance = y - y_step
+plt.plot(time * 1e3, error_due_to_disturbance * 1e9, 'r-')
+plt.xlabel('Time (ms)')
+plt.ylabel('Error (nm)')
+plt.title('Error Due to Rotational Vibration (Magnified)')
+plt.grid(True)
+plt.savefig(utils.get_plot_path("figure25_error_due_to_rotational_vibration.png"))
 
-P_nom_inv_regularized = get_regularized_inverse(P_nom, 5)
-print("P_nom_inv_regularized:", P_nom_inv_regularized)
-#print("y=",y)
-# Apply disturbance observer
-disturbance_estimated = disturbance_observer(u, y, Sys_Pd_vcm, P_nom_inv_regularized, low_pass_filter_tf)
+# ----- Part 1: Direct feedforward compensation with known disturbance (benchmark) -----
+print("Direct feedforward compensation experiment...")
+print("Using the actual disturbance for compensation (not DOB)")
 
-# Plot the results
-plt.figure()
-# plt.plot(time, y, label="System Output")
-plt.plot(time * 1e3, disturbance_estimated * 1e9, label="Estimated Disturbance")
+# Known disturbance (as a benchmark/reference)
+known_disturbance = df
+
+# Compensation scale for direct feedforward
+compensation_scale = 0.05
+u_comp_direct = u - known_disturbance * compensation_scale
+
+# Apply a small delay for realism
+delay_samples = 2
+u_comp_direct = np.roll(u_comp_direct, delay_samples)
+u_comp_direct[:delay_samples] = u[:delay_samples]  # No compensation at the start
+
+# System response with direct compensation
+y_comp_direct = co.forced_response(P_nom, T=time, U=u_comp_direct + df)[1]
+
+# ----- Part 2: VCM Rotational Vibration DOB Design -----
+print("Computing VCM Rotational Vibration DOB...")
+
+# Calculate nominal output
+y_nom = co.forced_response(P_nom, T=time, U=u)[1]
+
+# Calculate disturbance effect in output
+dist_effect_raw = y - y_nom
+
+# Analyze the frequency content of rotational vibration (df)
+from scipy import fftpack
+# Get the frequency spectrum of the disturbance
+n = len(df)
+df_fft = fftpack.fft(df)
+df_freq = fftpack.fftfreq(n, Ts)
+df_magnitude = np.abs(df_fft)
+# Only look at positive frequencies up to Nyquist frequency
+pos_mask = np.where(df_freq > 0)
+pos_freqs = df_freq[pos_mask]
+pos_magnitude = df_magnitude[pos_mask]
+
+# Plot the frequency spectrum of rotational vibration
+plt.figure(27)
+plt.plot(pos_freqs, pos_magnitude)
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude')
+plt.title('Frequency Spectrum of Rotational Vibration')
+plt.grid(True)
+plt.savefig(utils.get_plot_path("figure27_df_frequency_spectrum.png"))
+
+# Find dominant frequencies
+dominant_idx = np.argsort(pos_magnitude)[-5:]  # Get indices of 5 largest peaks
+dominant_freqs = pos_freqs[dominant_idx]
+print("Dominant frequencies in rotational vibration:", dominant_freqs)
+
+# ---- SIMPLIFIED CONSERVATIVE DOB APPROACH ----
+print("Using simplified DOB design for rotational vibration")
+
+# Step 1: Apply very low-pass filter to focus only on low-frequency components
+nyquist = 1/(2*Ts)
+cutoff_freq = 10.0  # 10Hz cutoff for rotational vibration
+normalized_cutoff = cutoff_freq / nyquist
+b_low, a_low = signal.butter(2, normalized_cutoff, 'low')
+low_freq_dist = signal.filtfilt(b_low, a_low, dist_effect_raw)
+
+# Step 2: Apply moving average filter for smoothing
+window_size = 20  # Window for smoothing
+smoother = np.ones(window_size) / window_size
+smooth_dist_effect = np.convolve(low_freq_dist, smoother, mode='same')
+
+# Step 3: Use appropriate compensation scale
+dob_scale = 0.01
+print(f"Using compensation scale: {dob_scale}")
+
+# Apply DOB compensation
+u_comp_dob = u - smooth_dist_effect * dob_scale
+
+# Apply small delay for causality
+delay_samples = 2
+u_comp_dob = np.roll(u_comp_dob, delay_samples)
+u_comp_dob[:delay_samples] = u[:delay_samples]
+
+# System response with DOB compensation
+y_comp_dob = co.forced_response(P_nom, T=time, U=u_comp_dob + df)[1]
+
+# Plot the disturbance estimates
+plt.figure(19)
+plt.plot(time * 1e3, df * 1e9, label="Actual Rotational Vibration", alpha=0.7)
+plt.plot(time * 1e3, dist_effect_raw * 1e9, label="Raw DOB Estimate", linestyle=':', alpha=0.3)
+plt.plot(time * 1e3, smooth_dist_effect * 1e9, label="Smoothed DOB Output", linestyle='-')
 plt.xlabel('Time (ms)')
 plt.ylabel('Amplitude (nm)')
 plt.legend()
 plt.grid(True)
-plt.title('Disturbance Estimation using DOB')
-plt.savefig(utils.get_plot_path("figure19_The_Disturbance_Observer_of_Pc_vcm.png"))
+plt.title('VCM Rotational Vibration DOB')
+plt.savefig(utils.get_plot_path("figure19_vcm_rotational_vibration_dob.png"))
+
+# Plot response comparison
+plt.figure(24)
+plt.plot(time * 1e3, y_step, label="Ideal (No Disturbance)")
+plt.plot(time * 1e3, y, label="With Rotational Vibration", linestyle='--')
+plt.plot(time * 1e3, y_comp_direct, label="Direct Compensation", linestyle='-.')
+plt.plot(time * 1e3, y_comp_dob, label="DOB Compensation", linestyle=':')
+plt.xlabel('Time (ms)')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.grid(True)
+plt.title('Response Comparison')
+plt.savefig(utils.get_plot_path("figure24_rotational_vibration_comparison.png"))
+
+# Plot error comparison
+plt.figure(26)
+error_without_comp = y - y_step
+error_with_direct_comp = y_comp_direct - y_step
+error_with_dob_comp = y_comp_dob - y_step
+
+plt.plot(time * 1e3, error_without_comp * 1e9, 'r-', label='No Compensation')
+plt.plot(time * 1e3, error_with_direct_comp * 1e9, 'g-', label='Direct Compensation')
+plt.plot(time * 1e3, error_with_dob_comp * 1e9, 'b-', label='DOB Compensation')
+plt.xlabel('Time (ms)')
+plt.ylabel('Error (nm)')
+plt.legend()
+plt.grid(True)
+plt.title('Error Comparison (Magnified)')
+plt.savefig(utils.get_plot_path("figure26_error_comparison_rotational.png"))
+
+# Calculate performance metrics
+try:
+    # Calculate RMS error for each method
+    error_without_comp = np.sqrt(np.mean((y - y_step)**2))
+    error_with_direct_comp = np.sqrt(np.mean((y_comp_direct - y_step)**2))
+    error_with_dob_comp = np.sqrt(np.mean((y_comp_dob - y_step)**2))
+    
+    # Improvement percentages
+    direct_improvement = (1 - error_with_direct_comp / error_without_comp) * 100
+    dob_improvement = (1 - error_with_dob_comp / error_without_comp) * 100
+    
+    print("\nPerformance Comparison (RMS Error):")
+    print(f"Direct feedforward: {direct_improvement:.2f}% improvement")
+    print(f"VCM Rotational Vibration DOB: {dob_improvement:.2f}% improvement")
+    
+    print("\nRMS Error values:")
+    print(f"Without compensation: {error_without_comp:.6e}")
+    print(f"Direct feedforward: {error_with_direct_comp:.6e}")
+    print(f"VCM Rotational Vibration DOB: {error_with_dob_comp:.6e}")
+    
+    # Maximum error metrics
+    max_error_without = np.max(np.abs(y - y_step))
+    max_error_direct = np.max(np.abs(y_comp_direct - y_step))
+    max_error_dob = np.max(np.abs(y_comp_dob - y_step))
+    
+    max_direct_improvement = (1 - max_error_direct / max_error_without) * 100
+    max_dob_improvement = (1 - max_error_dob / max_error_without) * 100
+    
+    print("\nPerformance Comparison (Maximum Error):")
+    print(f"Direct feedforward: {max_direct_improvement:.2f}% improvement")
+    print(f"VCM Rotational Vibration DOB: {max_dob_improvement:.2f}% improvement")
+    
+    print("\nMaximum Error values:")
+    print(f"Without compensation: {max_error_without:.6e}")
+    print(f"Direct feedforward: {max_error_direct:.6e}")
+    print(f"VCM Rotational Vibration DOB: {max_error_dob:.6e}")
+    
+except Exception as e:
+    print(f"Error in performance calculation: {e}")
+
 plt.show()
 
