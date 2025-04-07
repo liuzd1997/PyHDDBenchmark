@@ -58,7 +58,7 @@ This work presents a comprehensive Python-based framework for simulating and ana
 By translating and expanding upon the MATLAB-based benchmark problems [@Takenori2024Magnetic], this project aims to enhance the accessibility and utility of HDD control system simulations. The Python implementation provides a flexible and open-source platform for researchers and engineers to explore advanced control strategies, conduct system identification, and develop more efficient data storage solutions.
 
 # Statement of Need
-The development of high-performance HDD control systems has traditionally relied on proprietary tools or commercial software packages, potentially limiting broad participation in research and development efforts. While MATLAB-based solutions, such as the Control System Toolbox, have been widely used for digital servo control in HDDs, there is a growing need for open-source alternatives that can foster innovation and collaboration across the scientific community.
+The development of high-performance Hard disk drive (HDD) control systems has traditionally relied on proprietary tools or commercial software packages, potentially limiting broad participation in research and development efforts. While MATLAB-based solutions, such as the Control System Toolbox, have been widely used for digital servo control in HDDs, there is a growing need for open-source alternatives that can foster innovation and collaboration across the scientific community. This Python-based framework addresses that gap by offering a fully open-source, extensible alternative that replicates and expands upon existing MATLAB benchmarks. By leveraging Python’s growing ecosystem, this project aims to make HDD control simulation more accessible, reproducible, and integrative across fields including machine learning, system identification, and mechatronics.
 
 Previous research have leveraged the MATLAB version of the HDD package, including research conducted by [@muto2023controller], who proposed a recurrent neural netowrk based (RNN-based) reinforcement learning (RL) solution for HDD control. One of the methods in this study was to to transform the RNN-based controller into a state-space linear controller to ensure stability. Implementing the RNN-based RL solution improved the system performance by 5.8% compared to the original benchmark. [@wang2023systematic] proposed an auto-tuning method for a fixed-structure filter in a dual-stage actuated HDD system, which obviated the need for identifying parametric models from frequency response data. [@mae2023frequency] achieved the disturbance rejection of HDD using resonant filters which have a large peak at disturbance frequencies. [@yabui2023control] developed an adaptive feedforward cancellation (AFC) control to address repeatable runout (RRO) in the tracks of the disk. RRO has the potential to distort the track shape on the disks, affecting overall system performance. By implementing this control system, Yabui et all. independently controlled synchronous and asynchronous RRO, thereby eliminating any interdependencies that could potentially impact the system response. The AFC controller successfully increased the minimum distance in adjacent tracks by 2nm. In a broader application of HDD systems to the field of system identification, [@ouyang2023recursive] utilized the HDD benchmark package as one of the applications in their study on system identification. Their approach focused on non-uniformly sampled system identification based on recursive least-squares (RLS) and coprime collaborative sensing. Results from this study demonstrate that the algorithm effectively tracks fast systems beyond the Nyquist frequencies of multiple slow sensors. [@hu2024state]contributed to the field by proposing a data-driven method that employs lifting via state-space representation. This technique shows potential as an effective system identification tool for HDDs, potentially enhancing model accuracy and control performance. Complementing this work,[@thomas2024optimal] presented an optimization approach specifically targeting the waterbed effect in the RRO region of HDDs. This method aims to improve the trade-off between sensitivity and complementary sensitivity functions, which is crucial for high-performance HDD control systems.
 
@@ -70,7 +70,7 @@ The software package comprises several Python modules, each serving specific fun
 - `function_simulation.py` executes HDD simulations based on scenarios defined in `plant.py` and saves the outputs to a designated folder. This process may be time-consuming. 
 - `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files, and it gives the results of amplitude specturm of $d_f$, $d_p$, and $d_{RRO}$, the output displacement $y_{cp}$ and $y_c$. 
 - `plot_control_system.py` visualizes the frequency responses of the control system. 
-- `plot_control_system_with_DOB.py` adds the desigen of the disturbance observer (DOB) based on `plot_control_system.py`.
+- `DOB_of_VCM.py` designs a disturbance observer (DOB) for the VCM.
 - `utils.py` includes additional data definitions and utility functions supporting the simulations. 
 - `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
 - `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the original control system. 
@@ -145,9 +145,27 @@ The framework implements the decoupled sensitivity design approach, as described
   </div>
 
 ## Disturbance Observer (DOB) design
-The package includes functionality for designing and implementing disturbance observers, which can significantly improve the system's ability to reject external disturbances. This feature is based on the work of Wu et al. (2003) [@Wu2003], who compared various resonance compensation approaches in dual-stage HDDs. For example, Figure \autoref{fig:DOB_VCM} shows the disturbance estimation using DOB of VCM.
+The package includes functionality for designing and implementing disturbance observers, which can significantly improve the system's ability to reject external disturbances. This feature is based on the work of Wu et al. (2003) [@Wu2003], who compared various resonance compensation approaches in dual-stage HDDs. 
+
+Our implementation focuses specifically on addressing rotational vibration (df) in the VCM with a carefully designed DOB. The DOB uses frequency analysis to identify dominant components in the disturbance signal (120Hz, 240Hz, 360Hz, 480Hz, and 600Hz) and employs a targeted filtering approach:
+
+- A low-pass filter with 10Hz cutoff frequency to isolate the most impactful disturbance components
+- Moving average smoothing with a 20-sample window to ensure robust estimation 
+- A conservative compensation scale of 0.01 to maintain system stability
+- Small delay compensation for causality
+
+This design achieves significant performance improvements over uncompensated control:
+- 29.19% reduction in RMS error (compared to 4.96% with direct feedforward compensation)
+- 35.40% reduction in maximum error (compared to 5.00% with direct feedforward)
+
+Figure \autoref{fig:DOB_VCM} shows the disturbance estimation results, with the DOB effectively tracking the actual rotational vibration pattern. Figure \autoref{fig:DOB_error} displays the error comparison, demonstrating the superior performance of the DOB-based compensator compared to uncompensated control and direct feedforward compensation.
+
   <div align="center">
-  <img src="./Figures/DOB_of_Pc_vcm.png" style="zoom:60%"  alt="The disturbance estimation using DOB of VCM. \label{fig:DOB_VCM}"/>
+  <img src="./Figures/vcm_rotational_vibration_dob.png" style="zoom:60%"  alt="The disturbance estimation using DOB of VCM. \label{fig:DOB_VCM}"/>
+  </div>
+
+  <div align="center">
+  <img src="./Figures/figure26_error_comparison_rotational.png" style="zoom:60%"  alt="Error comparison with DOB compensation. \label{fig:DOB_error}"/>
   </div>
 
 ## Temperature variations: Low (LT), Room (RT), and High (HT) temperatures
@@ -185,6 +203,6 @@ Figure \autoref{fig:reduced_oder_Pc_pzt} and Figure \autoref{fig:reduced_oder_Pc
 -->
 
 # Acknowledgements
-
+The authors gratefully acknowledge the support and technical insights provided by Guoxiao Guo, Richard Conway, and Jason Laks of Western Digital in the development of the Python-based HDD benchmark framework. Their contributions were instrumental in ensuring the benchmark's practical relevance and fidelity.
 
 # References

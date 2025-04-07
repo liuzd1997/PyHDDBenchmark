@@ -25,7 +25,7 @@ The adaptation is inspired by and based on the research and methodologies outlin
     ├── license.txt
     ├── plant.py
     ├── plot_control_system.py
-    ├── plot_control_system_with_DOB.py
+    ├── DOB_of_VCM.py
     ├── plot_result
     │   ├── ... Figures
     ├── reduce_order_compare.py
@@ -46,7 +46,7 @@ The adaptation is inspired by and based on the research and methodologies outlin
 - `plant.py`: Specifies the dynamics of the plant being simulated.
 - `utils.py`: Includes additional data definitions and utility functions supporting the simulations.
 - `plot_control_system.py`: Visualizes the frequency responses of the control system.
-- `plot_control_system_with_DOB.py` adds the design of the disturbance observer (DOB) based on `plot_control_system.py`.
+- `DOB_of_VCM.py` designs a disturbance observer (DOB) for the VCM.
 - `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
 - `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the 
 - `simulate_trackfollow.py`: Displays simulation outcomes, requiring prior generation of simulation result files.
@@ -180,9 +180,19 @@ Note: All the code execution results, including plots and data files, will be sa
    - Functionality for designing and implementing disturbance observers
       <br />
       <div align="center">
-      <img src="./plot_result/figure19_The_Disturbance_Observer_of_Pc_vcm.png" style="zoom:80%"  alt="The disturbance estimation using DOB of VCM. \label{fig:DOB_VCM}"/>
+      <img src="./plot_result/figure19_vcm_rotational_vibration_dob.png" style="zoom:80%"  alt="The disturbance estimation using DOB of VCM."/>
       </div> 
-   - Improves system's disturbance rejection capabilities
+   - Specialized DOB implementation for rotational vibration (df) in VCM
+   - Design features:
+     - Low-pass filter (10Hz cutoff) to target rotational disturbance frequencies
+     - Moving average smoothing for robust estimation
+     - Conservative compensation scale (0.01) for stability
+   - Performance results:
+     - 29.19% reduction in RMS error
+     - 35.40% reduction in maximum error
+     <div align="center">
+     <img src="./plot_result/figure26_error_comparison_rotational.png" style="zoom:80%"  alt="Error comparison with DOB compensation."/>
+     </div>
    - Inspired by [Wu et al. (2003)](https://doi.org/10.1109/TIE.2003.819658)
 
 5. **Temperature and gain variation modeling:**
