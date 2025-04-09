@@ -281,293 +281,124 @@ def get_Freq_Resp(file_name, Fr_Resp_Type):
     return Fr_Resp_all
 
 
-def Freq_Resp_Plot(Fr_Resp_all_Mag, Fr_Resp_all_Phase, Freq, name, phase_range=(-360, 90), save_path=None):
-    """
-    Plot the frequency response (magnitude and phase) of multiple systems.
-    Args:
-        Fr_Resp_all_Mag (numpy.ndarray): The magnitude of the frequency responses.
-        Fr_Resp_all_Phase (numpy.ndarray): The phase of the frequency responses.
-        Freq (numpy.ndarray): The frequency points.
-        name (str): The name of the plot.
-        phase_range (tuple, optional): The range of the phase plot. Defaults to (-360, 90).
-        save_path (str, optional): The path to save the plot. Defaults to None.
-    """
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(24, 16))
-    fig.suptitle(name, fontsize=28, fontweight='bold', fontfamily='Times New Roman')
-
-    # Common settings for both subplots
-    for ax in (ax1, ax2):
-        ax.set_xscale('log')
-        ax.tick_params(axis='both', which='major', labelsize=20)
-        ax.tick_params(axis='both', which='minor', labelsize=18)
-        ax.grid(True, which="both", ls="-", alpha=0.7)
-        ax.set_axisbelow(True)  # Place grid lines below the data
-
+def Freq_Resp_Plot(mag, phase, f, title, phase_lim, save_path):
+    plt.rcParams.update({'font.size': 16})  # Increase base font size
+    fig = plt.figure(figsize=(12, 8))
+    
     # Magnitude plot
-    ax1.set_ylabel("Gain [dB]", fontsize=24, fontweight='bold', fontfamily='Times New Roman')
+    ax1 = fig.add_subplot(211)
+    lines = []
+    for i in range(len(mag)):
+        line, = ax1.semilogx(f, mag[i])
+        lines.append(line)
+    ax1.grid(True)
+    ax1.set_ylabel('Magnitude [dB]', fontsize=18)
+    ax1.set_title(title, pad=15, fontsize=20)
+    ax1.tick_params(axis='both', which='major', labelsize=14)
     
     # Phase plot
-    ax2.set_xlabel("Frequency [Hz]", fontsize=24, fontweight='bold', fontfamily='Times New Roman')
-    ax2.set_ylabel("Phase [deg.]", fontsize=24, fontweight='bold', fontfamily='Times New Roman')
-    ax2.set_ylim(phase_range)
-    ax2.yaxis.set_major_locator(MultipleLocator(90))
-
-    lines = []
-    labels = []
-
-    num_cases = Fr_Resp_all_Mag.shape[0]
-
-    for i in range(num_cases):
-        linestyle = "--" if i > 5 else "-"
-        linewidth = 2.5
-        
-        l_mag, = ax1.plot(Freq, Fr_Resp_all_Mag[i], linestyle=linestyle, linewidth=linewidth)
-        ax2.plot(Freq, Fr_Resp_all_Phase[i], linestyle=linestyle, color=l_mag.get_color(), linewidth=linewidth)
-        
-        lines.append(l_mag)
-        labels.append(f'Case {i+1}')
-
-    # Add legend to the lower subplot
-    ax2.legend(lines, labels, loc="lower left", 
-               prop={'family': 'Times New Roman', 'size': 20, 'weight': 'bold'},
-               frameon=True, framealpha=0.9, edgecolor='black')
-
+    ax2 = fig.add_subplot(212)
+    for i in range(len(phase)):
+        ax2.semilogx(f, phase[i], color=lines[i].get_color())
+    ax2.grid(True)
+    ax2.set_ylabel('Phase [deg]', fontsize=18)
+    ax2.set_xlabel('Frequency [Hz]', fontsize=18)
+    ax2.set_ylim(phase_lim)
+    ax2.tick_params(axis='both', which='major', labelsize=14)
+    
+    # Add legend
+    if len(mag) > 1:  # Only add legend if there are multiple cases
+        labels = [f'Case {i+1}' for i in range(len(mag))]
+        ax2.legend(lines, labels, loc='lower left', fontsize=14)
+    
     plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+def Nyquist_Plot(real, imag, title, save_path):
+    plt.rcParams.update({'font.size': 16})
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
     
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-
-
-def Nyquist_Plot(Fr_Resp_all_real, Fr_Resp_all_imag, title, save_path=None):
-    """
-    Plot the Nyquist plot of multiple systems.
-    Args:
-    Fr_Resp_all_real (list): The real part of the frequency responses.
-    Fr_Resp_all_imag (list): The imaginary part of the frequency responses.
-    title (str): The title of the plot.
-    save_path (str, optional): The path to save the plot. Defaults to None.
-    """
-
-    fig, ax = plt.subplots(1,2, sharex='col', figsize = (24, 16))
-    fig.suptitle(title, fontsize=28, weight='bold', family='Times New Roman')
-    plt.xticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
-    plt.yticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
-
-    ax1 = ax[0]
-    ax1.set_title('Openloop (Nyquist Plot) Overall', fontsize=24, weight='bold', family='Times New Roman')
-    ax1.set_xlabel("Real Axis", fontdict={'family': 'Times New Roman',
-                                          'size' : 22, 'weight': 'bold'}) 
-    ax1.set_ylabel("Imaginary Axis", fontdict={'family': 'Times New Roman',
-                                               'size' : 22, 'weight': 'bold'})
-    ax1.grid(True, which="both", ls="-", alpha=0.7)
-    ax1.set_axisbelow(True)
+    lines = []
+    for i in range(len(real)):
+        line, = ax.plot(real[i], imag[i])
+        lines.append(line)
     
-    ax2 = ax[1]
-    ax2.set_title('Openloop (Nyquist Plot) Detail', fontsize=24, weight='bold', family='Times New Roman')
-    ax2.set_xlabel("Real Axis", fontdict={'family': 'Times New Roman',
-                                          'size' : 22, 'weight': 'bold'}) 
-    ax2.set_ylabel("Imaginary Axis", fontdict={'family': 'Times New Roman',
-                                               'size' : 22, 'weight': 'bold'})
-    ax2.grid(True, which="both", ls="-", alpha=0.7)
-    ax2.set_axisbelow(True)
+    ax.grid(True)
+    ax.set_xlabel('Real', fontsize=18)
+    ax.set_ylabel('Imaginary', fontsize=18)
+    ax.set_title(title, pad=15, fontsize=20)
+    ax.tick_params(axis='both', which='major', labelsize=14)
     
-    plt.sca(ax[1])
-    x_major_locator = plt.MultipleLocator(2)
-    ax2.xaxis.set_major_locator(x_major_locator)
-    plt.xlim(-7, 7)
-
-    y_major_locator = plt.MultipleLocator(2)
-    ax2.yaxis.set_major_locator(y_major_locator)
-    plt.ylim(-5, 5)
-
-    L1 = []
-    L2 = []
-    label = []
-
-    for i in range(len(Fr_Resp_all_real)):
-
-        Fr_Resp_real_all = Fr_Resp_all_real[i]
-        Fr_Resp_imag_all = Fr_Resp_all_imag[i]
-        
-        if i > 5:
-            l, = ax1.plot(Fr_Resp_real_all, Fr_Resp_imag_all, linestyle="--", linewidth=2.5)
-            L1.append(l)
-
-        else:
-            l, = ax1.plot(Fr_Resp_real_all, Fr_Resp_imag_all, linestyle="-", linewidth=2.5)
-            L1.append(l)
-        
-        for j in range(1, len(Fr_Resp_real_all)):
-            if abs(Fr_Resp_real_all[-j]) > 7 or abs(Fr_Resp_imag_all[-j]) > 5:
-                d_index = j
-                break
-        
-        Fr_Resp_real_detail = Fr_Resp_real_all[-d_index:]
-        Fr_Resp_imag_detail = Fr_Resp_imag_all[-d_index:]
-
-        if i > 5:
-            l, = ax2.plot(Fr_Resp_real_detail, Fr_Resp_imag_detail, linestyle="--", linewidth=2.5)
-            L2.append(l)
-
-        else:
-            l, = ax2.plot(Fr_Resp_real_detail, Fr_Resp_imag_detail, linestyle="-", linewidth=2.5)
-            L2.append(l)
-        
-        label.append('Case '+ str(i+1))
-        
-    ax1.legend(handles=L1, 
-               labels=label,
-               loc="lower left", 
-               prop={'family': 'Times New Roman', 'size': 20, 'weight': 'bold'},
-               frameon=True, framealpha=0.9, edgecolor='black'
-            )
-
-    ax2.legend(handles=L2, 
-               labels=label,
-               loc="lower left", 
-               prop={'family': 'Times New Roman', 'size': 20, 'weight': 'bold'},
-               frameon=True, framealpha=0.9, edgecolor='black'
-            ) 
+    # Set axis limits for detail view
+    ax.set_xlim(-7, 7)
+    ax.set_ylim(-5, 5)
     
-    if save_path != None:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.show()
-
-
-def Sensitive_Function_Plot(Fr_Resp_all_Mag, Freq, name, save_path=None):
-    """
-    Plot the sensitivity function of multiple systems.
-    Args:
-    Fr_Resp_all_Mag (numpy.ndarray): The magnitude of the sensitivity functions.
-    Freq (numpy.ndarray): The frequency points.
-    name (str): The name of the plot.
-    save_path (str, optional): The path to save the plot. Defaults to None.
-    """
-
-    title = name
-
-    fig, ax = plt.subplots(1,1, figsize = (20, 16))
-    fig.suptitle(title, fontsize=28, weight='bold', family='Times New Roman')
-    plt.xticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
-    plt.yticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
-    plt.xscale('log')
-    ax.grid(True, which="both", ls="-", alpha=0.7)
-    ax.set_axisbelow(True)
+    # Add legend
+    if len(real) > 1:  # Only add legend if there are multiple cases
+        labels = [f'Case {i+1}' for i in range(len(real))]
+        ax.legend(lines, labels, loc='lower left', fontsize=14)
     
-    l1 = []
-    label = []
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
 
-    for i in range(Fr_Resp_all_Mag.shape[0]):
 
-        Fr_Resp_Mag = Fr_Resp_all_Mag[i]        
-        ax.set_xlabel("Frequency [Hz]", fontdict={'family': 'Times New Roman',
-                                                'size' : 22, 'weight': 'bold'}) 
-        ax.set_ylabel("Gain [dB]", fontdict={'family': 'Times New Roman',
-                                                'size' : 22, 'weight': 'bold'}) 
-
-        if i > 5:
-            l, = ax.plot(Freq, Fr_Resp_Mag, linestyle="--", linewidth=2.5)
-            l1.append(l)
-
-        else:
-            l, = ax.plot(Freq, Fr_Resp_Mag, linestyle="-", linewidth=2.5)
-            l1.append(l)
-
-        label.append('Case '+ str(i+1))
-        
-    ax.legend(handles=l1, 
-               labels=label,
-               loc="upper left", 
-               prop={'family': 'Times New Roman', 'size': 20, 'weight': 'bold'},
-               frameon=True, framealpha=0.9, edgecolor='black'
-            )
+def Sensitive_Function_Plot(mag, f, title, save_path):
+    plt.rcParams.update({'font.size': 16})
+    fig = plt.figure(figsize=(12, 6))
+    ax = fig.add_subplot(111)
     
-    if save_path != None:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-
-
-def Multi_Rate_Filter_Plot(Fr_Resp_1_Mag, Fr_Resp_1_Phase, Fr_Resp_2_Mag, Fr_Resp_2_Phase, Freq, name, save_path=None):
-    """
-    Plot the frequency response (magnitude and phase) of two multi-rate filters.
-
-    Args:
-        Fr_Resp_1_Mag (numpy.ndarray): The magnitude of the first multi-rate filter's frequency response.
-        Fr_Resp_1_Phase (numpy.ndarray): The phase of the first multi-rate filter's frequency response.
-        Fr_Resp_2_Mag (numpy.ndarray): The magnitude of the second multi-rate filter's frequency response.
-        Fr_Resp_2_Phase (numpy.ndarray): The phase of the second multi-rate filter's frequency response.
-        Freq (numpy.ndarray): The frequency points.
-        name (str): The name of the plot.
-        save_path (str, optional): The path to save the plot. Defaults to None.
-    """
-    title = name
-
-    fig, ax = plt.subplots(2,1, sharex='col', figsize = (20, 16))
-    fig.suptitle(title, fontsize=28, weight='bold', family='Times New Roman')
-    plt.xticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
-    plt.yticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
-    plt.xscale('log')
-    l1 = []
-    l2 = []
-    label = ['Fr_Fm$_{vcm}$', 'Fr_Fm$_{pzt}$']
-
-    # The setting of subfigure 1
-    ax1 = ax[0]
+    lines = []
+    for i in range(len(mag)):
+        line, = ax.semilogx(f, mag[i])
+        lines.append(line)
     
-    ax1.set_xlabel("Frequency [Hz]", fontdict={'family': 'Times New Roman',
-                                            'size' : 22, 'weight': 'bold'}) 
-    ax1.set_ylabel("Gain [dB]", fontdict={'family': 'Times New Roman',
-                                            'size' : 22, 'weight': 'bold'}) 
-    ax1.grid(True, which="both", ls="-", alpha=0.7)
-    ax1.set_axisbelow(True)
+    ax.grid(True)
+    ax.set_xlabel('Frequency [Hz]', fontsize=18)
+    ax.set_ylabel('Magnitude [dB]', fontsize=18)
+    ax.set_title(title, pad=15, fontsize=20)
+    ax.tick_params(axis='both', which='major', labelsize=14)
     
-    plt.sca(ax[0])
-    plt.yticks(font={'family': 'Times New Roman', 'size' : 20, 'weight': 'bold'})
+    # Add legend
+    if len(mag) > 1:  # Only add legend if there are multiple cases
+        labels = [f'Case {i+1}' for i in range(len(mag))]
+        ax.legend(lines, labels, loc='upper left', fontsize=14)
+    
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
 
-    l, = ax1.plot(Freq, Fr_Resp_1_Mag, linewidth=2.5)
-    l1.append(l)
-    l, = ax1.plot(Freq, Fr_Resp_2_Mag, linewidth=2.5)
-    l1.append(l)
 
-    ax1.legend(handles=l1, 
-               labels=label,
-               loc="lower left", 
-               prop={'family': 'Times New Roman', 'size': 20, 'weight': 'bold'},
-               frameon=True, framealpha=0.9, edgecolor='black'
-               )
+def Multi_Rate_Filter_Plot(mag_vcm, phase_vcm, mag_pzt, phase_pzt, f, title, save_path):
+    plt.rcParams.update({'font.size': 16})
+    fig = plt.figure(figsize=(12, 8))
     
-    # The setting of subfigure 2
-    ax2 = ax[1]
+    # Magnitude plot
+    ax1 = fig.add_subplot(211)
+    ax1.semilogx(f, mag_vcm, label='VCM')
+    ax1.semilogx(f, mag_pzt, label='PZT')
+    ax1.grid(True)
+    ax1.set_ylabel('Magnitude [dB]', fontsize=18)
+    ax1.set_title(title, pad=15, fontsize=20)
+    ax1.legend(fontsize=14)
+    ax1.tick_params(axis='both', which='major', labelsize=14)
     
-    ax2.set_xlabel("Frequency [Hz]", fontdict={'family': 'Times New Roman',
-                                            'size' : 22, 'weight': 'bold'}) 
-    ax2.set_ylabel("Phase [deg.]", fontdict={'family': 'Times New Roman',
-                                            'size' : 22, 'weight': 'bold'})
-    ax2.grid(True, which="both", ls="-", alpha=0.7)
-    ax2.set_axisbelow(True)
+    # Phase plot
+    ax2 = fig.add_subplot(212)
+    ax2.semilogx(f, phase_vcm, label='VCM')
+    ax2.semilogx(f, phase_pzt, label='PZT')
+    ax2.grid(True)
+    ax2.set_ylabel('Phase [deg]', fontsize=18)
+    ax2.set_xlabel('Frequency [Hz]', fontsize=18)
+    ax2.legend(fontsize=14)
+    ax2.tick_params(axis='both', which='major', labelsize=14)
     
-    plt.sca(ax[1])
-    y_major_locator = plt.MultipleLocator(90)
-    ax2.yaxis.set_major_locator(y_major_locator)
-    plt.ylim(-180, 180)
-
-    # Plot the phase of the first multi-rate filter's frequency response
-    l, = ax2.plot(Freq, Fr_Resp_1_Phase, linewidth=2.5)
-    l1.append(l)
-    
-    # Plot the phase of the second multi-rate filter's frequency response
-    l, = ax2.plot(Freq, Fr_Resp_2_Phase, linewidth=2.5)
-    l1.append(l)
-
-    ax2.legend(handles=l1, 
-               labels=label,
-               loc="lower left", 
-               prop={'family': 'Times New Roman', 'size': 20, 'weight': 'bold'},
-               frameon=True, framealpha=0.9, edgecolor='black'
-               )
-    
-    if save_path != None:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
 
 
 
