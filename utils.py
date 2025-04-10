@@ -284,7 +284,7 @@ def get_Freq_Resp(file_name, Fr_Resp_Type):
 def Freq_Resp_Plot(mag, phase, f, title, phase_lim, save_path):
     plt.rcParams.update({'font.size': 16})  # Increase base font size
     fig = plt.figure(figsize=(12, 8))
-    
+
     # Magnitude plot
     ax1 = fig.add_subplot(211)
     lines = []
@@ -310,7 +310,7 @@ def Freq_Resp_Plot(mag, phase, f, title, phase_lim, save_path):
     if len(mag) > 1:  # Only add legend if there are multiple cases
         labels = [f'Case {i+1}' for i in range(len(mag))]
         ax2.legend(lines, labels, loc='lower left', fontsize=14)
-    
+
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
@@ -320,7 +320,7 @@ def Nyquist_Plot(real, imag, title, save_path):
     plt.rcParams.update({'font.size': 16})
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111)
-    
+
     lines = []
     for i in range(len(real)):
         line, = ax.plot(real[i], imag[i])
@@ -340,7 +340,7 @@ def Nyquist_Plot(real, imag, title, save_path):
     if len(real) > 1:  # Only add legend if there are multiple cases
         labels = [f'Case {i+1}' for i in range(len(real))]
         ax.legend(lines, labels, loc='lower left', fontsize=14)
-    
+
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
