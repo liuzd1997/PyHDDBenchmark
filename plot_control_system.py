@@ -133,8 +133,8 @@ Freq_Resp_Plot(Fr_Cd_vcm_mag, Fr_Cd_vcm_phase, f, title, (-180, 180), save_path)
 
 print("Plotting Fr_Cd_pzt...")
 # Fr_Cd_pzt
-save_path = get_plot_path("figure15_The_Frequency_Response_of_Cd_vcm.png")
-title = 'The Frequency Response of $Cd_{vcm}$' 
+save_path = get_plot_path("figure15_The_Frequency_Response_of_Cd_pzt.png")
+title = 'The Frequency Response of $Cd_{pzt}$' 
 Fr_Cd_pzt_mag = 20*np.log10(abs(Fr_Cd_pzt).T)
 Fr_Cd_pzt_phase = 180*(np.angle(Fr_Cd_pzt).T)/np.pi
 Freq_Resp_Plot(Fr_Cd_pzt_mag, Fr_Cd_pzt_phase, f, title, (-180, 180), save_path)
