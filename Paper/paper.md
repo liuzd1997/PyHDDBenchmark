@@ -70,7 +70,6 @@ The software package comprises several Python modules, each serving specific fun
 - `function_simulation.py` executes HDD simulations based on scenarios defined in `plant.py` and saves the outputs to a designated folder. This process may be time-consuming. 
 - `simulate_trackfollow.py` displays simulation outcomes, requiring prior generation of simulation result files, and it gives the results of amplitude specturm of $d_f$, $d_p$, and $d_{RRO}$, the output displacement $y_{cp}$ and $y_c$. 
 - `plot_control_system.py` visualizes the frequency responses of the control system. 
-- `DOB_of_VCM.py` designs a disturbance observer (DOB) for the VCM.
 - `utils.py` includes additional data definitions and utility functions supporting the simulations. 
 - `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
 - `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the original control system. 
@@ -144,20 +143,7 @@ The framework implements the decoupled sensitivity design approach, as described
   <img src="./Figures/Sensitive_Function.png" style="zoom:30%"  alt="Decoupled sensitivity function. \label{fig:sensitivity_function}"/>
   </div>
 
-## Disturbance Observer (DOB) design
-The package includes functionality for designing and implementing disturbance observers for external disturbance rejection in HDD systems. Our implementation explores a DOB design for addressing rotational vibration (df) in the VCM, based on the framework discussed by Wu et al. (2003) [@Wu2003].
 
-The current DOB implementation includes:
-- A low-pass filter (10Hz cutoff) for frequency isolation
-- Moving average smoothing (20-sample window)
-- A conservative compensation scale (0.01)
-- Small delay compensation for causality
-
-While the DOB shows moderate improvement in disturbance rejection with a 29.19% reduction in RMS error and 35.40% reduction in maximum error compared to uncompensated control (as shown in Figure \autoref{fig:DOB_error}), there is still room for improvement in the estimation accuracy and compensation performance. Future work could focus on enhancing the DOB design through adaptive gains, improved filtering strategies, or integration with other control techniques.
-
-  <div align="center">
-  <img src="./Figures/figure33_error_comparison.png" style="zoom:60%"  alt="Error comparison with DOB compensation. \label{fig:DOB_error}"/>
-  </div>
 
 ## Temperature variations: Low (LT), Room (RT), and High (HT) temperatures
 The framework provides nine pre-configured cases to represent different operational conditions.

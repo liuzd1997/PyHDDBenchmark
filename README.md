@@ -25,7 +25,6 @@ The adaptation is inspired by and based on the research and methodologies outlin
     ├── license.txt
     ├── plant.py
     ├── plot_control_system.py
-    ├── DOB_of_VCM.py
     ├── plot_result
     │   ├── ... Figures
     ├── reduce_order_compare.py
@@ -46,7 +45,6 @@ The adaptation is inspired by and based on the research and methodologies outlin
 - `plant.py`: Specifies the dynamics of the plant being simulated.
 - `utils.py`: Includes additional data definitions and utility functions supporting the simulations.
 - `plot_control_system.py`: Visualizes the frequency responses of the control system.
-- `DOB_of_VCM.py` designs a disturbance observer (DOB) for the VCM.
 - `reduce_order_compare.py` includes utility functions supporting the reduced order function of the plant. 
 - `reduce_order_system.py` visualizes the frequency responses of the reduced-order system while comparing them with the 
 - `simulate_trackfollow.py`: Displays simulation outcomes, requiring prior generation of simulation result files.
@@ -110,10 +108,6 @@ To engage with the project's simulation and plotting functionalities, execute th
     ```bash
     python plot_control_system.py
     ```
-    or disturbance observer
-    ```bash
-    python plot_control_system_with_DOB.py
-    ``` 
 
   - To compare the frequency responses between the reduced-order plants and the original plants of PZT actuator and VCM, execute:
     ```bash
@@ -176,22 +170,7 @@ Note: All the code execution results, including plots and data files, will be sa
    - Allows separate controller design for VCM and PZT stages
    - Based on [Li and Horowitz (2001)](https://doi.org/10.1109/3516.928724)
 
-4. **Disturbance Observer (DOB) design:**
-   - Implementation of disturbance observers for external disturbance rejection
-   - DOB design for VCM rotational vibration compensation includes:
-     - Low-pass filter (10Hz cutoff) for frequency isolation
-     - Moving average smoothing (20-sample window)
-     - Conservative compensation scale (0.01)
-     - Small delay compensation for causality
-   - Performance evaluation:
-     - 29.19% reduction in RMS error
-     - 35.40% reduction in maximum error
-     <div align="center">
-     <img src="./plot_result/figure33_error_comparison.png" style="zoom:80%"  alt="Error comparison with DOB compensation."/>
-     </div>
-   - Based on [Wu et al. (2003)](https://doi.org/10.1109/TIE.2003.819658)
-
-5. **Temperature and gain variation modeling:**
+4. **Temperature and gain variation modeling:**
    - Nine pre-configured cases for different operational conditions
    - Temperature variations: Low, Room, and High temperatures
    - PZT actuator gain variations: Nominal, +5%, and -5%
@@ -201,7 +180,7 @@ Note: All the code execution results, including plots and data files, will be sa
       |  Temp.   |   LT    |   RT    |   HT    |     LT     |     RT     |     HT     |     LT     |     RT     |     HT     |
       | PZT gain | Nominal | Nominal | Nominal | Nominal+5% | Nominal+5% | Nominal+5% | Nominal-5% | Nominal-5% | Nominal-5% |
 
-6. **Reduced-order modeling:**
+5. **Reduced-order modeling:**
    - Tools for creating and analyzing reduced-order system models
       <br />
       <div align="center">
@@ -212,6 +191,7 @@ Note: All the code execution results, including plots and data files, will be sa
       </div> 
    - Useful for control design and system analysis
    - Inspired by [Boettcher et al. (2010)](https://doi.org/10.1299/jamdsm.4.107)
+
 ## Contact
 
 For questions or feedback, please contact chx@uw.edu
