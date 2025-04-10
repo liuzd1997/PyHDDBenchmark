@@ -1,8 +1,8 @@
 # A Python-Based Framework for Magnetic-Head Positioning Control Systems in Hard Disk Drives
 
-This project serves as a Python adaptation of the Hard Disk Drive Servo Control Benchmark: "Magnetic-head Positioning Control System in HDDs," authored by Takenori Atsumi in MATLAB under the Investigating R&D Committee on “Precision Servo Technology for High Value-Added Mechatronic System,” The Institute of Electrical Engineers of Japan.  The Matlab source material can be found on the MATLAB Central File Exchange, uploaded in 2024, and is available through the following link: [Magnetic-head Positioning Control System in HDDs](https://www.mathworks.com/matlabcentral/fileexchange/111515-magnetic-head-positioning-control-system-in-hdds).
+This project serves as a Python adaptation of the Hard Disk Drive Servo Control Benchmark: "Magnetic-head Positioning Control System in HDDs," authored by Takenori Atsumi in MATLAB under the Investigating R&D Committee on "Precision Servo Technology for High Value-Added Mechatronic System," The Institute of Electrical Engineers of Japan.  The Matlab source material can be found on the MATLAB Central File Exchange, uploaded in 2024, and is available through the following link: [Magnetic-head Positioning Control System in HDDs](https://www.mathworks.com/matlabcentral/fileexchange/111515-magnetic-head-positioning-control-system-in-hdds).
 
-The adaptation is inspired by and based on the research and methodologies outlined in the reference paper by T. Atsumi and S. Yabui, titled "Quadruple-Stage Actuator System for Magnetic-Head Positioning System in HDDs." This paper was published in The IEEE Transactions on Industrial Electronics, Volume 67, Issue 11, on pages 9184-9194, in November 2020. The DOI for this paper is: 10.1109/TIE.2019.2955432 and is supported by the Investigating R&D Committee on “Precision Servo Technology for High Value-Added Mechatronic System”, The Institute of Electrical Engineers of Japan.
+The adaptation is inspired by and based on the research and methodologies outlined in the reference paper by T. Atsumi and S. Yabui, titled "Quadruple-Stage Actuator System for Magnetic-Head Positioning System in HDDs." This paper was published in The IEEE Transactions on Industrial Electronics, Volume 67, Issue 11, on pages 9184-9194, in November 2020. The DOI for this paper is: 10.1109/TIE.2019.2955432 and is supported by the Investigating R&D Committee on "Precision Servo Technology for High Value-Added Mechatronic System", The Institute of Electrical Engineers of Japan.
 
 
 ## Repository Structure 
@@ -177,23 +177,19 @@ Note: All the code execution results, including plots and data files, will be sa
    - Based on [Li and Horowitz (2001)](https://doi.org/10.1109/3516.928724)
 
 4. **Disturbance Observer (DOB) design:**
-   - Functionality for designing and implementing disturbance observers
-      <br />
-      <div align="center">
-      <img src="./plot_result/figure19_vcm_rotational_vibration_dob.png" style="zoom:80%"  alt="The disturbance estimation using DOB of VCM."/>
-      </div> 
-   - Specialized DOB implementation for rotational vibration (df) in VCM
-   - Design features:
-     - Low-pass filter (10Hz cutoff) to target rotational disturbance frequencies
-     - Moving average smoothing for robust estimation
-     - Conservative compensation scale (0.01) for stability
-   - Performance results:
+   - Implementation of disturbance observers for external disturbance rejection
+   - DOB design for VCM rotational vibration compensation includes:
+     - Low-pass filter (10Hz cutoff) for frequency isolation
+     - Moving average smoothing (20-sample window)
+     - Conservative compensation scale (0.01)
+     - Small delay compensation for causality
+   - Performance evaluation:
      - 29.19% reduction in RMS error
      - 35.40% reduction in maximum error
      <div align="center">
-     <img src="./plot_result/figure26_error_comparison_rotational.png" style="zoom:80%"  alt="Error comparison with DOB compensation."/>
+     <img src="./plot_result/figure33_error_comparison.png" style="zoom:80%"  alt="Error comparison with DOB compensation."/>
      </div>
-   - Inspired by [Wu et al. (2003)](https://doi.org/10.1109/TIE.2003.819658)
+   - Based on [Wu et al. (2003)](https://doi.org/10.1109/TIE.2003.819658)
 
 5. **Temperature and gain variation modeling:**
    - Nine pre-configured cases for different operational conditions
