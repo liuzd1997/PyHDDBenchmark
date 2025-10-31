@@ -4,7 +4,7 @@ This project serves as a Python adaptation of the Hard Disk Drive Servo Control 
 
 The adaptation is inspired by and based on the research and methodologies outlined in the reference paper by T. Atsumi and S. Yabui, titled "Quadruple-Stage Actuator System for Magnetic-Head Positioning System in HDDs." This paper was published in The IEEE Transactions on Industrial Electronics, Volume 67, Issue 11, on pages 9184-9194, in November 2020. The DOI for this paper is: 10.1109/TIE.2019.2955432 and is supported by the Investigating R&D Committee on “Precision Servo Technology for High Value-Added Mechatronic System”, The Institute of Electrical Engineers of Japan.
 
-
+Zidong Liu, Yusen Wan, Richard Lu, Amy Santoso, Xiaohai Hu, Thomas Lee Chu, Guoxiao Guo, Takenori Atsumi, Xu Chen
 
 ## Repository Structure 
 
