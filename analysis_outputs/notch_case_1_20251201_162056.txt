@@ -1,0 +1,5 @@
+Case 1 Summary - 20251201_162056
+Reward: -1.7870
+Performance -> PM: 55.60 deg, GM: 0.00 dB, SensPeak: 5.92 dB, TrackingErr: -28.5638, Stability: 0.0
+VCM Notch -> f0=39999.98 Hz, bw=5000.00 Hz, depth=-0.00 dB
+PZT Notch -> f0=39999.98 Hz, bw=4999.99 Hz, depth=-0.00 dB

@@ -334,7 +334,8 @@ def Nyquist_Plot(real, imag, title, save_path):
     
     # Set axis limits for detail view
     ax.set_xlim(-7, 7)
-    ax.set_ylim(-5, 5)
+    ax.set_ylim(-7, 2)
+    ax.set_aspect('equal')
     
     # Add legend
     if len(real) > 1:  # Only add legend if there are multiple cases
