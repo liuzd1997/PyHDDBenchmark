@@ -12,9 +12,11 @@ import matplotlib.pyplot as plt
 import control.matlab as matlab
 from control import freqresp
 import scipy.signal as signal
+from scipy.optimize import differential_evolution
 import sys
 import os
 import copy
+import argparse
 from datetime import datetime
 
 # Add current directory to Python path
@@ -103,47 +105,51 @@ class SimpleHDDNotchDesignEnv:
         # Reward weights and targets
         self.weights = env_config['weights']
         self.targets = env_config['targets']
+        self.reward_scale = float(env_config.get('reward_scale', 100.0))
+        self.frequency_delta_decades = float(env_config.get('frequency_delta_decades', 0.12))
+        self.delta_max = float(env_config.get('delta_max', 0.12))
+        self.notches_per_channel = int(env_config.get('notches_per_channel', 2))
+        self.params_per_notch = 3
+        self.param_dim = 2 * self.notches_per_channel * self.params_per_notch
         
-        # Frequency range
-        # Nyquist frequency for the multirate system
-        nyquist_freq = 1.0 / (self.Ts / self.Mr_f) / 2.0
-        # Limit max frequency to Nyquist to avoid aliasing and numerical issues
-        max_freq = min(100000, nyquist_freq * 0.99)
-        self.freq_range = np.logspace(1, np.log10(max_freq), 1000)
+        # Closed-loop metrics include the slow-rate controller, so they must stay
+        # below the slow-rate Nyquist frequency.
+        slow_nyquist_freq = 1.0 / self.Ts / 2.0
+        max_freq = min(float(env_config.get('max_closed_loop_freq', 25000.0)), slow_nyquist_freq * 0.98)
+        num_freq_points = int(env_config.get('num_freq_points', 800))
+        self.freq_range = np.logspace(1, np.log10(max_freq), num_freq_points)
         self.omega = 2 * np.pi * self.freq_range
         
         # Precompute Controller Frequency Responses (Fixed)
         self.Cd_vcm_fr = self._ensure_1d_fr(utils.freqresp(self.Sys_Cd_vcm, self.omega))
         self.Cd_pzt_fr = self._ensure_1d_fr(utils.freqresp(self.Sys_Cd_pzt, self.omega))
         
-        # Note: Multirate filters are part of the plant path in the simplified model
-        # We approximate the digital plant as P_d = P_c * F_m * Notch
-        # So we need F_m frequency response
-        # However, strictly speaking, F_m is at high rate, P_c is continuous.
-        # Let's approximate the "Plant Path without Notch" frequency response.
-        # P_path = P_c(s) * F_m(z) * Hold(s)
-        # For simplicity and speed, we will use the precomputed P_d from the original code logic
-        # but we need to be able to randomize it.
-        # Strategy: Randomize P_c, then multiply by fixed F_m.
-        
         self.Fm_vcm_fr = self._ensure_1d_fr(utils.freqresp(self.Sys_Fm_vcm, self.omega))
         self.Fm_pzt_fr = self._ensure_1d_fr(utils.freqresp(self.Sys_Fm_pzt, self.omega))
         
-        # State and action spaces
-        self.observation_space = self._create_observation_space()
         self.param_low, self.param_high = self._load_action_bounds(env_config.get('action_bounds'))
         self.param_range = np.clip(self.param_high - self.param_low, 1e-6, None)
+        # State and action spaces
+        self.observation_space = self._create_observation_space()
         self.action_space = self._create_action_space()
         
-        # Precompute Plant Frequency Responses for speed
+        # Precompute no-notch plant responses and fast-rate chains for reuse.
         self.plant_fr_cache = {}
+        self.plant_chain_cache = {}
         self._precompute_plant_responses()
+
+        # Optional DE warm-start: maps case_name → notch_params array.
+        # Populated by load_initial_params(); None means start from midpoint.
+        self.initial_params_by_case = None
+        self.init_noise = float(env_config.get('init_noise', 0.15))
 
         # Initialize state variables
         self.current_notch_params = self._midpoint_params()
         self.plant_features = np.zeros(30)  # Base plant features (static)
         self.current_system_features = np.zeros(15)  # Current sensitivity features (dynamic: 5 peaks * 3 values)
         self.current_performance = np.array([0.0])  # Only sensitivity_peak
+        self.current_vcm_peak_refs = []
+        self.current_pzt_peak_refs = []
         
         # Placeholders for current system FRs
         self.current_vcm_fr_with_notch = None
@@ -152,13 +158,12 @@ class SimpleHDDNotchDesignEnv:
         
     def _create_observation_space(self):
         """Create observation space"""
-        # State: [Base_Plant_Features(30), Current_Sensitivity_Features(15), Current_Notch_Params(6), Sensitivity_Peak(1)]
-        # Total: 52 dimensions
+        # State: [Base_Plant_Features(30), Current_Sensitivity_Features(15), Current_Notch_Params, Sensitivity_Peak(1)]
         # Base_Plant_Features: Static features from P*Fm (for reference - tells agent what peaks to suppress)
         # Current_Sensitivity_Features: Dynamic sensitivity peaks (tells agent current system state and notch effectiveness)
         # Sensitivity_Peak: Current sensitivity peak value (directly related to reward)
         return {
-            'shape': (52,),
+            'shape': (30 + 15 + self.param_dim + 1,),
             'low': -np.inf,
             'high': np.inf
         }
@@ -178,6 +183,73 @@ class SimpleHDDNotchDesignEnv:
         """Frequency response helper that returns 1D complex array"""
         response = utils.freqresp(system, self.omega)
         return self._ensure_1d_fr(response)
+
+    def _ss_tuple(self, system):
+        """Return dense SISO state-space matrices as a tuple."""
+        return (
+            np.asarray(system.A, dtype=np.float64),
+            np.asarray(system.B, dtype=np.float64),
+            np.asarray(system.C, dtype=np.float64),
+            np.asarray(system.D, dtype=np.float64),
+        )
+
+    def _series_ss(self, sys1, sys2):
+        """State-space realization for sys1 * sys2, matching python-control series order."""
+        if sys2 is None:
+            return sys1
+        if sys1 is None:
+            return sys2
+
+        A1, B1, C1, D1 = sys1
+        A2, B2, C2, D2 = sys2
+        n1 = A1.shape[0]
+        n2 = A2.shape[0]
+
+        A = np.block([
+            [A1, B1 @ C2],
+            [np.zeros((n2, n1)), A2],
+        ])
+        B = np.vstack([B1 @ D2, B2])
+        C = np.hstack([C1, D1 @ C2])
+        D = D1 @ D2
+        return A, B, C, D
+
+    def _resample_ss(self, sys_ss):
+        """Match utils.dts_resampling for cached dense state-space matrices."""
+        A, B, C, D = sys_ss
+        Az = A.copy()
+        Bz = B.copy()
+        for _ in range(1, self.Mr_f):
+            Bz = Bz + Az @ B
+            Az = Az @ A
+        return Az, Bz, C, D
+
+    def _freqresp_ss(self, sys_ss):
+        """Fast SISO discrete state-space frequency response on self.omega."""
+        A, B, C, D = sys_ss
+        sys = signal.dlti(A, B, C, D, dt=self.Ts)
+        _, response = signal.dfreqresp(sys, w=self.omega * self.Ts)
+        return np.asarray(response, dtype=np.complex128)
+
+    def _notch_ss(self, f0, bw, depth_db):
+        """Create a discrete notch state-space tuple at the fast sample rate."""
+        if depth_db >= 0:
+            return None
+
+        ts = self.Ts / self.Mr_f
+        w0 = 2 * np.pi * f0
+        zeta = bw / (2 * f0)
+        depth_lin = max(10 ** (depth_db / 20.0), 1e-4)
+        num = [1.0, 2.0 * zeta * w0 * depth_lin, w0**2]
+        den = [1.0, 2.0 * zeta * w0, w0**2]
+        b, a, _ = signal.cont2discrete((num, den), ts, method='zoh')
+        A, B, C, D = signal.tf2ss(b.ravel(), a)
+        return (
+            np.asarray(A, dtype=np.float64),
+            np.asarray(B, dtype=np.float64),
+            np.asarray(C, dtype=np.float64),
+            np.asarray(D, dtype=np.float64),
+        )
     
     def _build_notch_filter_tf(self, f0, bw, depth_db):
         """Create discrete-time notch filter using original multirate pipeline"""
@@ -203,6 +275,12 @@ class SimpleHDDNotchDesignEnv:
             sys_chain = sys_chain * notch_tf
         sys_pd = utils.dts_resampling(sys_chain, self.Mr_f)
         return sys_pd
+
+    def _create_digital_path_from_chain(self, sys_chain, notch_tf=None):
+        """Resample a cached fast-rate plant/filter chain to the controller rate."""
+        if notch_tf is not None:
+            sys_chain = sys_chain * notch_tf
+        return utils.dts_resampling(sys_chain, self.Mr_f)
     
     def _load_action_bounds(self, action_bounds):
         """Load physical notch parameter bounds"""
@@ -210,25 +288,39 @@ class SimpleHDDNotchDesignEnv:
             # Default bounds matching NotchFilterConfig ranges
             # VCM: freq(5k-45k), bw(100-5k), depth(-60-0)
             # PZT: freq(10k-47k), bw(100-5k), depth(-60-0)
-            low = np.array([5000.0, 100.0, -60.0, 10000.0, 100.0, -60.0], dtype=np.float32)
-            high = np.array([45000.0, 5000.0, 0.0, 47000.0, 5000.0, 0.0], dtype=np.float32)
+            low_6 = np.array([5000.0, 100.0, -60.0, 10000.0, 100.0, -60.0], dtype=np.float32)
+            high_6 = np.array([45000.0, 5000.0, 0.0, 47000.0, 5000.0, 0.0], dtype=np.float32)
+            low, high = self._expand_base_bounds(low_6, high_6)
             return low, high
         low = np.array(action_bounds['low'], dtype=np.float32)
         high = np.array(action_bounds['high'], dtype=np.float32)
-        if low.shape != (6,) or high.shape != (6,):
-            raise ValueError("Action bounds must provide 6 low and 6 high values.")
+        if low.shape == (6,) and high.shape == (6,):
+            low, high = self._expand_base_bounds(low, high)
+        if low.shape != (self.param_dim,) or high.shape != (self.param_dim,):
+            raise ValueError(f"Action bounds must provide 6 or {self.param_dim} low/high values.")
+        return low, high
+
+    def _expand_base_bounds(self, low_6, high_6):
+        """Expand [VCM notch, PZT notch] bounds to multiple notches per channel."""
+        vcm_low, pzt_low = low_6[:3], low_6[3:]
+        vcm_high, pzt_high = high_6[:3], high_6[3:]
+        low = np.concatenate(
+            [np.tile(vcm_low, self.notches_per_channel), np.tile(pzt_low, self.notches_per_channel)]
+        ).astype(np.float32)
+        high = np.concatenate(
+            [np.tile(vcm_high, self.notches_per_channel), np.tile(pzt_high, self.notches_per_channel)]
+        ).astype(np.float32)
         return low, high
     
     def _midpoint_params(self):
         """Return mid-point parameters within physical bounds (Geometric mean for Log indices)"""
-        params = np.zeros(6)
-        log_indices = [0, 1, 3, 4]
+        params = np.zeros(self.param_dim)
         
-        for i in range(6):
+        for i in range(self.param_dim):
             low = self.param_low[i]
             high = self.param_high[i]
             
-            if i in log_indices:
+            if i % 3 in (0, 1):
                 # Geometric mean
                 params[i] = np.sqrt(low * high)
             else:
@@ -241,59 +333,119 @@ class SimpleHDDNotchDesignEnv:
         """Create action space"""
         # Action: normalized parameters mapped to physical ranges
         return {
-            'shape': (6,),
-            'low': np.array([-1.0] * 6),
-            'high': np.array([1.0] * 6)
+            'shape': (self.param_dim,),
+            'low': np.array([-1.0] * self.param_dim),
+            'high': np.array([1.0] * self.param_dim)
         }
     
     def _action_to_params(self, action):
-        """Map normalized action [-1,1] to physical notch parameters (Log scale for Freq/BW)"""
+        """Map normalized action [-1,1] to physical notch parameters.
+
+        Frequency actions are local offsets around the current plant's main
+        no-notch peak. Bandwidth and depth still use the global physical ranges.
+        """
         action = np.clip(action, self.action_space['low'], self.action_space['high'])
         normalized = (action + 1.0) / 2.0  # [0,1]
         
-        params = np.zeros_like(normalized)
-        
-        # Log-scale indices: 0 (VCM Freq), 1 (VCM BW), 3 (PZT Freq), 4 (PZT BW)
-        log_indices = [0, 1, 3, 4]
-        
-        for i in range(6):
+        params = np.zeros_like(normalized, dtype=np.float64)
+
+        for i in range(self.param_dim):
             low = self.param_low[i]
             high = self.param_high[i]
-            
-            if i in log_indices:
-                # Log mapping
+            field = i % 3
+            channel_offset = 0 if i < self.notches_per_channel * 3 else self.notches_per_channel * 3
+            notch_idx = (i - channel_offset) // 3
+
+            if field == 0:
+                refs = self.current_vcm_peak_refs if channel_offset == 0 else self.current_pzt_peak_refs
+                fallback = np.sqrt(low * high)
+                ref = refs[notch_idx] if notch_idx < len(refs) and refs[notch_idx] > 0 else fallback
+                params[i] = np.clip(
+                    ref * (10.0 ** (action[i] * self.frequency_delta_decades)),
+                    low,
+                    high,
+                )
+            elif field == 1:
                 log_low = np.log10(low)
                 log_high = np.log10(high)
                 params[i] = 10**(log_low + normalized[i] * (log_high - log_low))
             else:
-                # Linear mapping
                 params[i] = low + normalized[i] * (high - low)
                 
         return params
+
+    def _params_to_action(self, params):
+        """Inverse of _action_to_params for supervised warm-start targets."""
+        params = np.asarray(params, dtype=np.float64)
+        action = np.zeros(self.param_dim, dtype=np.float32)
+
+        for i in range(self.param_dim):
+            low = self.param_low[i]
+            high = self.param_high[i]
+            field = i % 3
+            channel_offset = 0 if i < self.notches_per_channel * 3 else self.notches_per_channel * 3
+            notch_idx = (i - channel_offset) // 3
+            if field == 0:
+                refs = self.current_vcm_peak_refs if channel_offset == 0 else self.current_pzt_peak_refs
+                fallback = np.sqrt(low * high)
+                ref = refs[notch_idx] if notch_idx < len(refs) and refs[notch_idx] > 0 else fallback
+                action[i] = np.log10(np.clip(params[i], low, high) / ref) / self.frequency_delta_decades
+            elif field == 1:
+                log_low = np.log10(low)
+                log_high = np.log10(high)
+                n = (np.log10(np.clip(params[i], low, high)) - log_low) / (log_high - log_low)
+                action[i] = 2.0 * n - 1.0
+            else:
+                n = (np.clip(params[i], low, high) - low) / (high - low)
+                action[i] = 2.0 * n - 1.0
+
+        return np.clip(action, -1.0, 1.0)
     
     def _precompute_plant_responses(self):
-        """Precompute frequency responses for all plant cases combined with Fm"""
-        print("Precomputing plant responses for optimization...")
+        """Precompute no-notch full-pipeline responses for all plant cases."""
+        print("Precomputing full-pipeline plant responses for optimization...")
         fast_ts = self.Ts / self.Mr_f
         
         for case_name, base_vcm, base_pzt in self.plant_cases:
-            # 1. VCM Path
-            # Discretize Plant (ZOH)
             sys_pdm0_vcm = matlab.c2d(base_vcm, fast_ts, 'zoh')
-            # Combine with Fm (Fast Rate)
-            # Note: Series connection. In freq domain: product.
             sys_chain_vcm = sys_pdm0_vcm * self.Sys_Fm_vcm
-            
-            # Compute FR
-            fr_vcm = self._freqresp_1d(sys_chain_vcm)
-            
-            # 2. PZT Path
+            chain_vcm_ss = self._ss_tuple(sys_chain_vcm)
+            fr_vcm = self._freqresp_ss(self._resample_ss(chain_vcm_ss))
+
             sys_pdm0_pzt = matlab.c2d(base_pzt, fast_ts, 'zoh')
             sys_chain_pzt = sys_pdm0_pzt * self.Sys_Fm_pzt
-            fr_pzt = self._freqresp_1d(sys_chain_pzt)
+            chain_pzt_ss = self._ss_tuple(sys_chain_pzt)
+            fr_pzt = self._freqresp_ss(self._resample_ss(chain_pzt_ss))
             
             self.plant_fr_cache[case_name] = (fr_vcm, fr_pzt)
-            
+            self.plant_chain_cache[case_name] = (chain_vcm_ss, chain_pzt_ss)
+
+    def load_initial_params(self, npz_path):
+        """Warm-start each episode from DE-optimized notch params.
+
+        Loads a .npz produced by --mode optimize and stores the notch_params
+        as the per-case starting point for reset().  A small random perturbation
+        (controlled by init_noise) is applied each reset so the agent still
+        explores different refinements rather than always refining the same point.
+
+        npz plant_case == 'all'  → same params used for every case.
+        npz plant_case == 'c2'   → only case c2 is warm-started; others midpoint.
+        """
+        data = np.load(npz_path)
+        params = np.asarray(data['notch_params'], dtype=np.float64)
+        plant_case = str(data.get('plant_case', 'all'))
+
+        self.initial_params_by_case = {}
+        if plant_case == 'all':
+            for case_name, _, _ in self.plant_cases:
+                self.initial_params_by_case[case_name] = params.copy()
+        else:
+            self.initial_params_by_case[plant_case] = params.copy()
+
+        print(f"Loaded DE warm-start from: {os.path.abspath(npz_path)}")
+        print(f"  plant_case={plant_case}, "
+              f"params={format_notch_params(params, self.notches_per_channel)}")
+
     def _compute_notch_fr(self, f0, bw, depth_db):
         """Compute Notch Filter Frequency Response analytically (Fast)"""
         ts = self.Ts / self.Mr_f
@@ -329,34 +481,64 @@ class SimpleHDDNotchDesignEnv:
         
         return h
 
-    def _randomize_plant(self):
-        """Randomize plant by selecting a case (Gain scaling removed)"""
-        case_idx = np.random.randint(0, len(self.plant_cases))
-        case_name, base_vcm, base_pzt = self.plant_cases[case_idx]
+    def _select_plant_case(self, case_name):
+        """Select a plant case and refresh cached feature state."""
         self.current_case = case_name
         
         # Removed random gain scaling
         self.current_gain_scale = 1.0
         self.current_base_fr = self.plant_fr_cache[case_name]
+        self.current_fast_chain = self.plant_chain_cache[case_name]
         
         # Calculate plant features from Base FR (No Notch)
-        # Base_FR is (VCM_Chain, PZT_Chain) where Chain = P * Fm
+        # Base_FR is the slow-rate, resampled plant path without notch.
         self.base_vcm_fr = self.current_base_fr[0]
         self.base_pzt_fr = self.current_base_fr[1]
         
+        vcm_peaks = self._find_peaks(self.base_vcm_fr)
+        pzt_peaks = self._find_peaks(self.base_pzt_fr)
+        self.current_vcm_peak_refs = self._peak_refs(vcm_peaks, self.param_low[:3], self.param_high[:3])
+        pzt_start = self.notches_per_channel * 3
+        self.current_pzt_peak_refs = self._peak_refs(pzt_peaks, self.param_low[pzt_start:pzt_start + 3], self.param_high[pzt_start:pzt_start + 3])
+
         self.plant_features = self._extract_plant_features_from_fr(self.base_vcm_fr, self.base_pzt_fr)
         
         # Legacy placeholders not used in optimized evaluation
         self.current_vcm_plant = None
         self.current_pzt_plant = None
 
+    def _peak_refs(self, peaks, low_3, high_3):
+        f_low, f_high = float(low_3[0]), float(high_3[0])
+        refs = [p['freq'] for p in peaks if f_low <= p['freq'] <= f_high]
+        fallback = float(np.sqrt(low_3[0] * high_3[0]))
+        while len(refs) < self.notches_per_channel:
+            refs.append(fallback)
+        return refs[:self.notches_per_channel]
+
+    def _randomize_plant(self):
+        """Randomize plant by selecting a case (Gain scaling removed)"""
+        case_idx = np.random.randint(0, len(self.plant_cases))
+        case_name = self.plant_cases[case_idx][0]
+        self._select_plant_case(case_name)
+
     def reset(self):
         """Reset environment"""
         # 1. Randomize Plant
         self._randomize_plant()
-        
-        # 2. Reset Notch Params to mid-range values
-        self.current_notch_params = self._midpoint_params()
+
+        # 2. Set starting notch params.
+        # If DE warm-start is loaded, begin near the optimizer solution for the
+        # current case (with small noise so the agent explores refinements).
+        # Otherwise fall back to the mid-range geometric mean.
+        if (self.initial_params_by_case is not None
+                and self.current_case in self.initial_params_by_case):
+            base_params = self.initial_params_by_case[self.current_case]
+            base_norm = self._normalize_notch_params(base_params)
+            noise = np.random.uniform(-self.init_noise, self.init_noise, self.param_dim)
+            start_norm = np.clip(base_norm + noise, 0.0, 1.0)
+            self.current_notch_params = self._denormalize_params(start_norm)
+        else:
+            self.current_notch_params = self._midpoint_params()
         
         # 3. Calculate Initial Performance
         performance = self._evaluate_current_system()
@@ -380,15 +562,30 @@ class SimpleHDDNotchDesignEnv:
         return state
     
     def step(self, action):
-        """Execute action"""
-        # 1. Map normalized action to physical notch parameters
-        self.current_notch_params = self._action_to_params(action)
-        
+        """Execute action as a delta move in normalized param space.
+
+        Each call nudges the current notch parameters by action * delta_max
+        in the [0,1] normalized space, then converts back to physical units.
+        This enables iterative RL: the agent sees the effect of each move
+        before deciding the next one.
+        """
+        action = np.clip(action, self.action_space['low'], self.action_space['high'])
+        prev_sp = float(self.current_performance[0])  # sensitivity peak before this move
+        current_norm = self._normalize_notch_params(self.current_notch_params)
+        new_norm = np.clip(current_norm + action * self.delta_max, 0.0, 1.0)
+        self.current_notch_params = self._denormalize_params(new_norm)
+
         # 2. Evaluate System
         performance = self._evaluate_current_system()
-        
-        # 3. Calculate Reward
+
+        # 3. Calculate Reward + per-step improvement shaping.
+        # The base reward captures absolute quality; the shaping term rewards
+        # the agent for reducing sensitivity peak this specific step, giving a
+        # dense gradient signal for iterative delta-action RL.
         reward = self._calculate_reward(performance)
+        new_sp = float(performance['sensitivity_peak'])
+        improvement_bonus = max(0.0, prev_sp - new_sp) * 2.0 / self.reward_scale
+        reward = float(np.clip(reward + improvement_bonus, -100.0, 10.0))
         
         # 4. Update State
         self.current_performance = np.array([performance['sensitivity_peak']])
@@ -419,26 +616,17 @@ class SimpleHDDNotchDesignEnv:
         return next_state, reward, done, info
 
     def _evaluate_current_system(self):
-        """Evaluate system with current notch params using frequency response multiplication (Optimized)"""
-        if not hasattr(self, 'current_base_fr') or self.current_base_fr is None:
+        """Evaluate the current notch using the full multirate plant path."""
+        if not hasattr(self, 'current_fast_chain') or self.current_fast_chain is None:
             raise RuntimeError("Plant must be randomized before evaluation.")
-        
-        # Get Notch FRs (Vectorized, Analytical)
-        notch_vcm_fr = self._compute_notch_fr(
-            self.current_notch_params[0],
-            self.current_notch_params[1],
-            self.current_notch_params[2]
-        )
-        notch_pzt_fr = self._compute_notch_fr(
-            self.current_notch_params[3],
-            self.current_notch_params[4],
-            self.current_notch_params[5]
-        )
-        
-        # Combine: Base * Notch * Gain
-        # Base_FR is precomputed (P * Fm)
-        Fr_Pd_vcm = self.current_base_fr[0] * notch_vcm_fr * self.current_gain_scale
-        Fr_Pd_pzt = self.current_base_fr[1] * notch_pzt_fr * self.current_gain_scale
+
+        vcm_params = self._channel_params(self.current_notch_params, 'vcm')
+        pzt_params = self._channel_params(self.current_notch_params, 'pzt')
+        sys_pd_vcm = self._resample_ss(self._series_ss(self.current_fast_chain[0], self._cascade_notch_ss(vcm_params)))
+        sys_pd_pzt = self._resample_ss(self._series_ss(self.current_fast_chain[1], self._cascade_notch_ss(pzt_params)))
+
+        Fr_Pd_vcm = self._freqresp_ss(sys_pd_vcm) * self.current_gain_scale
+        Fr_Pd_pzt = self._freqresp_ss(sys_pd_pzt) * self.current_gain_scale
         
         L_vcm = Fr_Pd_vcm * self.Cd_vcm_fr
         L_pzt = Fr_Pd_pzt * self.Cd_pzt_fr
@@ -452,6 +640,23 @@ class SimpleHDDNotchDesignEnv:
         self.current_sensitivity_fr = S
         
         return self._calculate_performance_metrics(L_total, S)
+
+    def _channel_params(self, params, channel):
+        params = np.asarray(params, dtype=np.float64)
+        if channel == 'vcm':
+            start = 0
+        elif channel == 'pzt':
+            start = self.notches_per_channel * 3
+        else:
+            raise ValueError(f"Unknown channel: {channel}")
+        return params[start:start + self.notches_per_channel * 3].reshape(self.notches_per_channel, 3)
+
+    def _cascade_notch_ss(self, notch_params):
+        cascade = None
+        for f0, bw, depth_db in notch_params:
+            notch = self._notch_ss(f0, bw, depth_db)
+            cascade = self._series_ss(cascade, notch)
+        return cascade
 
     def _extract_plant_features_from_fr(self, vcm_fr, pzt_fr):
         """Extract features from frequency response"""
@@ -531,14 +736,13 @@ class SimpleHDDNotchDesignEnv:
     def _normalize_notch_params(self, params):
         """Normalize params to [0, 1] for state (Log scale for Freq/BW)"""
         norm = np.zeros_like(params)
-        log_indices = [0, 1, 3, 4]
         
-        for i in range(6):
+        for i in range(len(params)):
             low = self.param_low[i]
             high = self.param_high[i]
             val = params[i]
             
-            if i in log_indices:
+            if i % 3 in (0, 1):
                 # Inverse of log mapping
                 log_low = np.log10(low)
                 log_high = np.log10(high)
@@ -549,6 +753,21 @@ class SimpleHDDNotchDesignEnv:
                 norm[i] = n
                 
         return np.clip(norm, 0.0, 1.0)
+
+    def _denormalize_params(self, norm):
+        """Inverse of _normalize_notch_params: [0,1] → physical space."""
+        params = np.zeros(self.param_dim, dtype=np.float64)
+        for i in range(self.param_dim):
+            low = float(self.param_low[i])
+            high = float(self.param_high[i])
+            n = float(np.clip(norm[i], 0.0, 1.0))
+            if i % 3 in (0, 1):  # freq or bw: log scale
+                log_low = np.log10(low)
+                log_high = np.log10(high)
+                params[i] = 10.0 ** (log_low + n * (log_high - log_low))
+            else:  # depth: linear
+                params[i] = low + n * (high - low)
+        return params
 
     def _normalize_performance(self, perf):
         """Normalize performance metrics - only sensitivity_peak"""
@@ -569,84 +788,98 @@ class SimpleHDDNotchDesignEnv:
         gm = self._calculate_gain_margin(Fr_L)
         sp = np.max(20*np.log10(np.abs(Fr_S) + 1e-12))
         te = np.mean(20*np.log10(np.abs(Fr_S) + 1e-12)) # Simple proxy
+        return_difference_min = float(np.min(np.abs(1.0 + Fr_L)))
         
-        stable = 1.0 if pm > 0 and gm > 0 else 0.0
+        # This frequency-domain proxy is more reliable for this workflow than
+        # using PM/GM alone, which can be misleading with multiple crossovers.
+        finite = np.all(np.isfinite(Fr_L)) and np.all(np.isfinite(Fr_S))
+        stable = 1.0 if finite and sp < 12.0 and return_difference_min > 0.15 else 0.0
         
         return {
             'phase_margin': float(pm),
             'gain_margin': float(gm),
             'sensitivity_peak': float(sp),
             'stability': float(stable),
-            'tracking_error': float(te)
+            'tracking_error': float(te),
+            'return_difference_min': float(return_difference_min)
         }
 
     def _calculate_phase_margin(self, Fr_L):
-        # Same as before
         mag = np.abs(Fr_L)
-        phase = np.angle(Fr_L) * 180/np.pi
-        for i in range(len(mag)-1):
-            if mag[i] >= 1.0 and mag[i+1] <= 1.0:
-                # Interp
-                frac = (mag[i] - 1.0) / (mag[i] - mag[i+1] + 1e-12)
-                p = phase[i] + frac*(phase[i+1]-phase[i])
-                return 180 + p
-        return 0.0
+        phase = np.unwrap(np.angle(Fr_L)) * 180 / np.pi
+        phase_margins = []
+        for i in range(len(mag) - 1):
+            if (mag[i] - 1.0) * (mag[i + 1] - 1.0) <= 0 and mag[i] != mag[i + 1]:
+                frac = (1.0 - mag[i]) / (mag[i + 1] - mag[i])
+                p = phase[i] + frac * (phase[i + 1] - phase[i])
+                pm = 180.0 + p
+                # Fold the unwrapped value into [-180, 180] to remove the
+                # multi-rotation ambiguity that plagued the earlier version.
+                pm = ((pm + 180.0) % 360.0) - 180.0
+                phase_margins.append(pm)
+        if phase_margins:
+            return float(min(phase_margins))
+        return float('inf')
 
     def _calculate_gain_margin(self, Fr_L):
-        # Same as before
         mag = np.abs(Fr_L)
-        phase = np.angle(Fr_L) * 180/np.pi
-        for i in range(len(phase)-1):
-            if phase[i] >= -180 and phase[i+1] <= -180:
+        phase = np.unwrap(np.angle(Fr_L)) * 180 / np.pi
+        gain_margins = []
+        for i in range(len(phase) - 1):
+            if (phase[i] + 180.0) * (phase[i + 1] + 180.0) <= 0 and phase[i] != phase[i + 1]:
                 frac = (phase[i] - (-180)) / (phase[i] - phase[i+1] + 1e-12)
                 m = mag[i] + frac*(mag[i+1]-mag[i])
-                return -20*np.log10(m + 1e-12)
-        return 0.0
+                gain_margins.append(-20*np.log10(m + 1e-12))
+        if gain_margins:
+            return float(min(gain_margins))
+        return float('inf')
 
     def _calculate_reward(self, performance):
-        """Calculate reward with improved sensitivity_peak reward shaping"""
-        reward = 0
-        
-        # Phase margin reward
-        pm_diff = abs(performance['phase_margin'] - self.targets['phase_margin'])
-        reward += self.weights['phase_margin'] * np.exp(-pm_diff / 10)
-        
-        # Gain margin reward
-        gm_diff = abs(performance['gain_margin'] - self.targets['gain_margin'])
-        reward += self.weights['gain_margin'] * np.exp(-gm_diff / 2)
-        
-        # Sensitivity peak reward - improved shaping
-        # Use both absolute difference and relative improvement
-        sp_diff = abs(performance['sensitivity_peak'] - self.targets['sensitivity_peak'])
-        # Reward for being below target (good), penalize for being above (bad)
-        if performance['sensitivity_peak'] <= self.targets['sensitivity_peak']:
-            # Bonus for achieving target or better
-            reward += self.weights['sensitivity_peak'] * (1.0 + np.exp(-sp_diff / 1.0))
-        else:
-            # Penalty for exceeding target, with exponential decay
-            reward += self.weights['sensitivity_peak'] * np.exp(-sp_diff / 2.0)
-        
-        # Stability reward
-        reward += self.weights['stability'] * performance['stability']
-        
-        # Tracking error reward
-        te_diff = abs(performance['tracking_error'] - self.targets['tracking_error'])
-        reward += self.weights['tracking_error'] * np.exp(-te_diff / 2.0)
-        
-        # Strong penalty for unstable systems
+        """Reward as the negative of the constrained notch-design loss."""
+        reward = -self._objective_from_performance(performance, self.current_notch_params) / self.reward_scale
+        return float(np.clip(reward, -100.0, 10.0))
+
+    def _objective_from_performance(self, performance, notch_params):
+        """Lower is better: sensitivity peak plus control and notch-cost penalties.
+
+        Phase margin is excluded because the unwrapped-phase estimate is
+        unreliable for this multi-rate dual-loop system.  Stability is
+        instead captured by return_difference_min and gain_margin.
+        """
+        sp = float(performance['sensitivity_peak'])
+        gm = float(performance['gain_margin'])
+        return_difference_min = float(performance.get('return_difference_min', 0.0))
+
+        gm_min = float(self.targets.get('gain_margin', 6.0))
+        sp_target = float(self.targets.get('sensitivity_peak', 3.0))
+
+        loss = sp
+        loss += 10.0 * max(0.0, sp - sp_target) ** 2
+        if np.isfinite(gm):
+            loss += 0.5 * max(0.0, gm_min - gm) ** 2
+        loss += 40.0 * max(0.0, 0.30 - return_difference_min) ** 2
+
+        notch_params = np.asarray(notch_params, dtype=np.float64).reshape(-1, 3)
+        total_bw = float(np.sum(notch_params[:, 1]))
+        total_depth = float(np.sum(np.abs(notch_params[:, 2])))
+        loss += 0.15 * (total_bw / (5000.0 * len(notch_params)))
+        loss += 0.02 * (total_depth / (60.0 * len(notch_params)))
+
         if performance['stability'] < 0.5:
-            reward -= 10
-            
-        return reward
+            # Soft cliff: large enough to penalize instability but not so large
+            # that 30-step episodes diverge uncontrollably.
+            loss += 20.0
+        return float(loss)
     
 
     def _is_done(self, performance):
-        # Same as before
-        pm_ok = abs(performance['phase_margin'] - self.targets['phase_margin']) < 2
-        gm_ok = abs(performance['gain_margin'] - self.targets['gain_margin']) < 1
-        sp_ok = performance['sensitivity_peak'] < (self.targets['sensitivity_peak'] + 1.0)
+        # PM is excluded (unreliable estimate for this system); use GM + RDM.
+        gm = performance['gain_margin']
+        gm_ok = (not np.isfinite(gm)) or gm >= self.targets['gain_margin']
+        sp_ok = performance['sensitivity_peak'] <= self.targets['sensitivity_peak']
         stable = performance['stability'] > 0.8
-        return pm_ok and gm_ok and sp_ok and stable
+        rdm_ok = performance.get('return_difference_min', 0.0) > 0.25
+        return gm_ok and sp_ok and stable and rdm_ok
 
 
 # PPO Policy Network (Updated for new dimensions)
@@ -760,6 +993,10 @@ class PPOPolicy(nn.Module):
         
         dist = Normal(mean, std)
         action = dist.sample()
+        if action_low is not None and action_high is not None:
+            action_low_t = torch.tensor(action_low, dtype=torch.float32, device=action.device)
+            action_high_t = torch.tensor(action_high, dtype=torch.float32, device=action.device)
+            action = torch.max(torch.min(action, action_high_t), action_low_t)
         log_prob = dist.log_prob(action).sum(dim=-1)
         
         return action, log_prob, value
@@ -832,10 +1069,10 @@ class PPOAgent:
             return
         
         # Convert to tensors
-        states = torch.FloatTensor(self.states).to(self.device)
-        actions = torch.FloatTensor(self.actions).to(self.device)
-        old_log_probs = torch.FloatTensor(self.log_probs).to(self.device)
-        old_values = torch.FloatTensor(self.values).to(self.device)
+        states = torch.as_tensor(np.asarray(self.states, dtype=np.float32), device=self.device)
+        actions = torch.as_tensor(np.asarray(self.actions, dtype=np.float32), device=self.device)
+        old_log_probs = torch.as_tensor(np.asarray(self.log_probs, dtype=np.float32), device=self.device)
+        old_values = torch.as_tensor(np.asarray(self.values, dtype=np.float32), device=self.device)
         
         # Calculate discounted rewards
         rewards = self._compute_discounted_rewards()
@@ -928,7 +1165,7 @@ class PPOAgent:
 
 
 # Simple Training Function
-def train_simple_notch_designer():
+def train_simple_notch_designer(pretrain_model=None, max_episodes=None, max_steps=None, init_params=None):
     """Train simple notch filter designer"""
     
     print("=== Training Simple HDD Notch Filter Designer (Iterative & Randomized) ===")
@@ -936,9 +1173,15 @@ def train_simple_notch_designer():
     # Create environment
     env_config = config.get_simple_config()
     env = SimpleHDDNotchDesignEnv(env_config)
-    
+    if init_params is not None:
+        env.load_initial_params(init_params)
+
     # Create agent - use TrainingConfig from config.py
     train_config = config.TrainingConfig()
+    if max_episodes is not None:
+        train_config.max_episodes = int(max_episodes)
+    if max_steps is not None:
+        train_config.max_steps_per_episode = int(max_steps)
     
     state_dim = env.observation_space['shape'][0]
     action_dim = env.action_space['shape'][0]
@@ -946,11 +1189,16 @@ def train_simple_notch_designer():
     # Provide action bounds to agent so it can clip outputs
     agent.action_low = env.action_space['low']
     agent.action_high = env.action_space['high']
+    if pretrain_model is not None:
+        agent.load_model(pretrain_model)
+        print(f"Loaded pretrained model: {os.path.abspath(pretrain_model)}")
     
     print(f"Environment info:")
     print(f"  State dimension: {state_dim}")
     print(f"  Action dimension: {action_dim}")
     print(f"  Plant case: RT (Randomized)")
+    print(f"  Episodes: {train_config.max_episodes}")
+    print(f"  Steps per episode: {train_config.max_steps_per_episode}")
     
     # Training loop
     episode_rewards = []
@@ -1026,5 +1274,281 @@ def train_simple_notch_designer():
     agent.save_model(final_path)
     print(f"Saved final model to: {os.path.abspath(final_path)}")
 
+def evaluate_notch_params(env, notch_params, plant_case=None):
+    """Evaluate a physical notch-parameter vector in the environment."""
+    if plant_case is not None:
+        env._select_plant_case(plant_case)
+    elif env.current_case is None:
+        env._randomize_plant()
+
+    env.current_notch_params = np.array(notch_params, dtype=np.float64)
+    performance = env._evaluate_current_system()
+    reward = env._calculate_reward(performance)
+    return performance, reward
+
+
+def format_notch_params(params, notches_per_channel=2):
+    params = np.asarray(params, dtype=np.float64)
+    vcm = params[:notches_per_channel * 3].reshape(notches_per_channel, 3)
+    pzt = params[notches_per_channel * 3:].reshape(notches_per_channel, 3)
+    parts = []
+    for idx, (f0, bw, depth) in enumerate(vcm, start=1):
+        parts.append(f"VCM{idx}(f0={f0:.2f} Hz, bw={bw:.2f} Hz, depth={depth:.2f} dB)")
+    for idx, (f0, bw, depth) in enumerate(pzt, start=1):
+        parts.append(f"PZT{idx}(f0={f0:.2f} Hz, bw={bw:.2f} Hz, depth={depth:.2f} dB)")
+    return ", ".join(parts)
+
+
+def optimize_notch_designer(plant_case='c2', maxiter=25, popsize=8, seed=1, workers=1):
+    """Find notch parameters with deterministic constrained optimization."""
+    print("=== Optimizing HDD Notch Filter with Full Multirate Evaluation ===")
+    if workers != 1:
+        print("Parallel workers are disabled for this optimizer entrypoint on Windows; using workers=1.")
+        workers = 1
+    env = SimpleHDDNotchDesignEnv(config.get_simple_config())
+
+    if plant_case == 'all':
+        case_names = [case[0] for case in env.plant_cases]
+    else:
+        case_name = plant_case if str(plant_case).startswith('c') else f'c{plant_case}'
+        known_cases = {case[0] for case in env.plant_cases}
+        if case_name not in known_cases:
+            raise ValueError(f"Unknown plant case: {plant_case}. Available: {sorted(known_cases)} or 'all'.")
+        case_names = [case_name]
+
+    bounds = list(zip(env.param_low, env.param_high))
+
+    def objective(params):
+        losses = []
+        for case_name in case_names:
+            performance, _ = evaluate_notch_params(env, params, case_name)
+            losses.append(env._objective_from_performance(performance, params))
+        return float(np.mean(losses))
+
+    result = differential_evolution(
+        objective,
+        bounds,
+        maxiter=maxiter,
+        popsize=popsize,
+        seed=seed,
+        polish=True,
+        workers=workers,
+        updating='immediate' if workers == 1 else 'deferred',
+        tol=1e-3,
+    )
+
+    best_params = np.array(result.x, dtype=np.float64)
+    print(f"Best objective: {result.fun:.4f}")
+    print(f"Best notch params: {format_notch_params(best_params, env.notches_per_channel)}")
+
+    for case_name in case_names:
+        performance, reward = evaluate_notch_params(env, best_params, case_name)
+        print(
+            f"{case_name}: reward={reward:.4f}, "
+            f"S_peak={performance['sensitivity_peak']:.2f} dB, "
+            f"PM={performance['phase_margin']:.2f} deg, "
+            f"GM={performance['gain_margin']:.2f} dB, "
+            f"stable={performance['stability']:.0f}"
+        )
+
+    models_dir = os.path.join(os.getcwd(), 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = os.path.join(models_dir, f"optimized_notch_{plant_case}_{timestamp}.npz")
+    np.savez(
+        output_path,
+        notch_params=best_params,
+        objective=float(result.fun),
+        plant_case=str(plant_case),
+        maxiter=int(maxiter),
+        popsize=int(popsize),
+        seed=int(seed),
+    )
+    print(f"Saved optimized notch to: {os.path.abspath(output_path)}")
+    return best_params, result
+
+
+def build_state_for_case(env, case_name):
+    """Build the policy input state for a fixed plant case."""
+    env._select_plant_case(case_name)
+    env.current_notch_params = env._midpoint_params()
+    performance = env._evaluate_current_system()
+    env.current_performance = np.array([performance['sensitivity_peak']])
+    env.current_system_features = env._extract_current_system_features(
+        env.current_vcm_fr_with_notch,
+        env.current_pzt_fr_with_notch,
+        env.current_sensitivity_fr,
+    )
+    return np.concatenate([
+        env.plant_features,
+        env.current_system_features,
+        env._normalize_notch_params(env.current_notch_params),
+        env._normalize_performance(env.current_performance),
+    ]).astype(np.float32)
+
+
+def optimize_action_for_case(env, case_name, maxiter=8, popsize=5, seed=1):
+    """Optimize directly in the policy's local normalized action space."""
+    build_state_for_case(env, case_name)
+
+    def objective(action):
+        env._select_plant_case(case_name)
+        params = env._action_to_params(np.asarray(action, dtype=np.float64))
+        performance, _ = evaluate_notch_params(env, params, case_name)
+        return env._objective_from_performance(performance, params)
+
+    result = differential_evolution(
+        objective,
+        [(-1.0, 1.0)] * env.action_space['shape'][0],
+        maxiter=maxiter,
+        popsize=popsize,
+        seed=seed,
+        polish=True,
+        tol=1e-3,
+    )
+    action = np.clip(np.asarray(result.x, dtype=np.float32), -1.0, 1.0)
+    env._select_plant_case(case_name)
+    params = env._action_to_params(action)
+    performance, reward = evaluate_notch_params(env, params, case_name)
+    actual_objective = env._objective_from_performance(performance, params)
+    return action, params, performance, reward, actual_objective, result
+
+
+def pretrain_policy_with_optimizer(maxiter=8, popsize=5, epochs=600, seed=1):
+    """Warm-start the PPO policy by fitting optimizer-generated actions."""
+    print("=== Supervised Pretrain from Local Optimizer Baselines ===")
+    env = SimpleHDDNotchDesignEnv(config.get_simple_config())
+    train_config = config.TrainingConfig()
+    state_dim = env.observation_space['shape'][0]
+    action_dim = env.action_space['shape'][0]
+    agent = PPOAgent(state_dim, action_dim, train_config)
+    agent.action_low = env.action_space['low']
+    agent.action_high = env.action_space['high']
+
+    states = []
+    actions = []
+    rows = []
+    for idx, (case_name, _, _) in enumerate(env.plant_cases):
+        action, params, performance, reward, actual_objective, result = optimize_action_for_case(
+            env,
+            case_name,
+            maxiter=maxiter,
+            popsize=popsize,
+            seed=seed + idx,
+        )
+        state = build_state_for_case(env, case_name)
+        states.append(state)
+        actions.append(action)
+        rows.append((case_name, params, performance, reward, actual_objective))
+        print(
+            f"{case_name}: objective={actual_objective:.4f}, reward={reward:.4f}, "
+            f"S_peak={performance['sensitivity_peak']:.2f} dB, "
+            f"PM={performance['phase_margin']:.2f} deg, "
+            f"GM={performance['gain_margin']:.2f} dB"
+        )
+
+    states_t = torch.as_tensor(np.asarray(states, dtype=np.float32), device=agent.device)
+    actions_t = torch.as_tensor(np.asarray(actions, dtype=np.float32), device=agent.device)
+
+    for epoch in range(int(epochs)):
+        mean, _, _ = agent.policy(states_t)
+        loss = nn.MSELoss()(mean, actions_t)
+        agent.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.policy.parameters(), agent.max_grad_norm)
+        agent.optimizer.step()
+        if epoch % 100 == 0 or epoch == epochs - 1:
+            print(f"Pretrain epoch {epoch}: mse={loss.item():.6f}")
+
+    models_dir = os.path.join(os.getcwd(), 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_path = os.path.join(models_dir, f"pretrained_simple_notch_policy_{timestamp}.pth")
+    data_path = os.path.join(models_dir, f"pretrained_simple_notch_dataset_{timestamp}.npz")
+    agent.save_model(model_path)
+    np.savez(
+        data_path,
+        states=np.asarray(states, dtype=np.float32),
+        actions=np.asarray(actions, dtype=np.float32),
+        cases=np.asarray([row[0] for row in rows]),
+        notch_params=np.asarray([row[1] for row in rows], dtype=np.float64),
+        rewards=np.asarray([row[3] for row in rows], dtype=np.float64),
+    )
+    print(f"Saved pretrained policy to: {os.path.abspath(model_path)}")
+    print(f"Saved pretrain dataset to: {os.path.abspath(data_path)}")
+    return model_path
+
+
+def load_model_and_predict(model_path, env=None, deterministic=True):
+    """Compatibility helper used by evaluate_model.py."""
+    if env is None:
+        env = SimpleHDDNotchDesignEnv(config.get_simple_config())
+
+    train_config = config.TrainingConfig()
+    state_dim = env.observation_space['shape'][0]
+    action_dim = env.action_space['shape'][0]
+    agent = PPOAgent(state_dim, action_dim, train_config)
+    agent.action_low = env.action_space['low']
+    agent.action_high = env.action_space['high']
+    agent.load_model(model_path)
+
+    state = env.reset()
+    if deterministic:
+        action, value = agent.get_action(state, deterministic=True)
+    else:
+        action, _, value = agent.get_action(state, deterministic=False)
+    _, reward, done, info = env.step(action)
+
+    return {
+        'action': action,
+        'value': value,
+        'reward': reward,
+        'done': done,
+        'performance': info['performance'],
+        'notch_params': info['notch_params'],
+        'case': info['case'],
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description="HDD notch filter design")
+    parser.add_argument('--mode', choices=['train', 'optimize', 'pretrain'], default='train')
+    parser.add_argument('--plant-case', default='c2', help="Plant case for optimization, e.g. c2, or all.")
+    parser.add_argument('--maxiter', type=int, default=25)
+    parser.add_argument('--popsize', type=int, default=8)
+    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--workers', type=int, default=1)
+    parser.add_argument('--pretrain-model', default=None, help="Optional pretrained .pth model for PPO training.")
+    parser.add_argument('--max-episodes', type=int, default=None, help="Override PPO episode count.")
+    parser.add_argument('--max-steps', type=int, default=None, help="Override PPO steps per episode.")
+    parser.add_argument('--pretrain-epochs', type=int, default=600, help="Supervised pretrain epochs.")
+    parser.add_argument('--init-params', default=None,
+                        help="Path to optimized_notch_*.npz to warm-start each episode from DE solution.")
+    args = parser.parse_args()
+
+    if args.mode == 'train':
+        train_simple_notch_designer(
+            pretrain_model=args.pretrain_model,
+            max_episodes=args.max_episodes,
+            max_steps=args.max_steps,
+            init_params=args.init_params,
+        )
+    elif args.mode == 'optimize':
+        optimize_notch_designer(
+            plant_case=args.plant_case,
+            maxiter=args.maxiter,
+            popsize=args.popsize,
+            seed=args.seed,
+            workers=args.workers,
+        )
+    else:
+        pretrain_policy_with_optimizer(
+            maxiter=args.maxiter,
+            popsize=args.popsize,
+            epochs=args.pretrain_epochs,
+            seed=args.seed,
+        )
+
+
 if __name__ == "__main__":
-    train_simple_notch_designer()
+    main()

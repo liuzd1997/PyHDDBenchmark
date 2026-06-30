@@ -39,7 +39,9 @@ def quick_test():
         # Test Step (Iterative)
         print("\n=== Iterative Step Test ===")
         # Action: Increase VCM Freq, Decrease PZT Depth
-        action = np.array([0.1, 0.0, 0.0, 0.0, 0.0, -0.1]) 
+        action = np.zeros(env.action_space['shape'][0])
+        action[0] = 0.1
+        action[-1] = -0.1
         
         next_state, reward, done, info = env.step(action)
         

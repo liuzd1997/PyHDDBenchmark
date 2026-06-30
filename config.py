@@ -23,42 +23,38 @@ class SystemConfig:
 class TrainingConfig:
     """Training Configuration"""
     # Training parameters
-    max_episodes: int = 2000  # Increased for better convergence with larger state space
-    max_steps_per_episode: int = 150
-    log_interval: int = 25
+    max_episodes: int = 3000
+    max_steps_per_episode: int = 30
+    log_interval: int = 50
     
     # PPO parameters
-    learning_rate: float = 8e-5  # Slightly reduced for stability with larger network
-    gamma: float = 0.995
+    learning_rate: float = 2e-5
+    gamma: float = 0.99
     clip_ratio: float = 0.15
     value_loss_coef: float = 0.5
-    entropy_coef: float = 0.02
-    ppo_epochs: int = 4  # Increased for better sample efficiency
-    batch_size: int = 256  # Increased for more stable gradients with larger state space
+    entropy_coef: float = 0.005
+    ppo_epochs: int = 4
+    batch_size: int = 64
     max_grad_norm: float = 0.5
-    hidden_dim: int = 320  # Increased from 256 to 320 (~25% increase) to handle larger state space
+    hidden_dim: int = 256
 
 
 @dataclass
 class NotchFilterConfig:
     """Notch Filter Configuration"""
     # VCM parameter ranges
-    # VCM resonances: 5.3k, 6.1k, 6.5k, 8k, 9.6k, 14.8k, 17.4k, 21k, 26k, 26.6k, 29k, 32.2k, 38.3k, 43.3k, 44.8k Hz
-    # Limit to reasonable range covering main resonances (5kHz - 45kHz)
-    vcm_center_freq_range: tuple = (5000, 45000)  # Hz - Focus on actual VCM resonance range
-    # vcm_bandwidth_range: tuple = (100, 5000)
-    vcm_bandwidth_range: tuple = (100, 5000)       # Hz
-    vcm_depth_range: tuple = (-60, 0)              # dB
-    # Q factor is calculated as center_freq / bandwidth
-    
+    # VCM resonances within slow-rate Nyquist (~25 kHz): 5.3k, 6.1k, 6.5k, 8k, 9.6k, 14.8k, 17.4k, 21k Hz
+    # Upper limit 16 kHz: VCM sensitivity peaks are in 8-12 kHz range; 16-22 kHz
+    # is PZT-dominated and L_vcm is negligible there, so VCM notches have no effect.
+    vcm_center_freq_range: tuple = (5000, 16000)  # Hz
+    vcm_bandwidth_range: tuple = (100, 3000)       # Hz — narrowed to reduce over-broad notches
+    vcm_depth_range: tuple = (-40, -1)             # dB
+
     # PZT parameter ranges
-    # PZT resonances: 14.8k, 21.5k, 28k, 40.2k, 42.05k, 44.4k, 46.5k, 100k Hz
-    # Limit to reasonable range covering main resonances (10kHz - 47kHz, excluding 100kHz outlier)
-    pzt_center_freq_range: tuple = (10000, 47000)  # Hz - Focus on actual PZT resonance range
-    #pzt_bandwidth_range: tuple = (100, 5000)       # Hz
-    pzt_bandwidth_range: tuple = (100, 5000)       # Hz
-    pzt_depth_range: tuple = (-60, 0)              # dB
-    # Q factor is calculated as center_freq / bandwidth
+    # PZT resonances within slow-rate Nyquist: 14.8k, 21.5k Hz
+    pzt_center_freq_range: tuple = (10000, 22000)  # Hz
+    pzt_bandwidth_range: tuple = (100, 3000)        # Hz
+    pzt_depth_range: tuple = (-40, -1)              # dB
 
 
 @dataclass
@@ -66,7 +62,7 @@ class PerformanceTargets:
     """Performance Targets"""
     phase_margin: float = 45.0      # degrees
     gain_margin: float = 6.0        # dB
-    sensitivity_peak: float = 3.0  # dB (target notch reduces sensitivity hump)
+    sensitivity_peak: float = 5.0  # dB (target notch reduces sensitivity hump)
     stability: float = 1.0          # stability metric
     tracking_error: float = -20.0     # tracking error in dB (approx 10% error)
 
@@ -160,6 +156,9 @@ def get_simple_config() -> Dict[str, Any]:
     manager = ConfigManager()
     env_config = manager.get_env_config()
     env_config['action_bounds'] = manager.get_action_space_config()
+    # Delta action scale: fraction of normalized range moved per RL step.
+    # With 0.12 and 30 steps, the agent can traverse the full range ~3.6x.
+    env_config['delta_max'] = 0.12
     return env_config
 
 

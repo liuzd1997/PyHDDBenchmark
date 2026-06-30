@@ -11,9 +11,11 @@ from control import matlab
 import config
 import plant
 import utils
-from simple_rl_notch_designer import SimpleHDDNotchDesignEnv, PPOAgent
+from simple_rl_notch_designer import SimpleHDDNotchDesignEnv, PPOAgent, build_state_for_case
+from simple_rl_notch_designer_v2 import SimpleHDDNotchDesignEnv, PPOAgent, build_state_for_case
 
-FREQ_VECTOR = np.logspace(1, np.log10(60000), 3000)
+
+FREQ_VECTOR = np.logspace(1, np.log10(25000), 2500)
 
 
 def build_agent(env_config):
@@ -52,6 +54,24 @@ def _build_notch_filter(f0, bw, depth_db, Ts, Mr_f):
     return matlab.c2d(notch_ct, sample_time, 'zoh')
 
 
+def _cascade_notches(notches, Ts, Mr_f):
+    sample_time = Ts / Mr_f
+    cascade = matlab.tf([1.0], [1.0], sample_time)
+    for f0, bw, depth_db in notches:
+        cascade = cascade * _build_notch_filter(f0, bw, depth_db, Ts, Mr_f)
+    return cascade
+
+
+def split_notch_params(notch_params):
+    params = np.asarray(notch_params, dtype=float)
+    if len(params) % 6 != 0:
+        raise ValueError("Notch parameter vector must contain equal VCM/PZT groups of [f0,bw,depth].")
+    n = len(params) // 6
+    vcm = params[:n * 3].reshape(n, 3)
+    pzt = params[n * 3:].reshape(n, 3)
+    return vcm, pzt
+
+
 def _create_digital_path(sys_pc, sys_fm, notch_tf, Ts, Mr_f):
     """Construct discrete-time plant path with multirate filter and notch."""
     sys_pdm0 = matlab.c2d(sys_pc, Ts / Mr_f, 'zoh')
@@ -71,8 +91,9 @@ def compute_full_response(env, notch_params, freq_hz, plant_case):
     sys_pc_vcm = getattr(plant, f"Sys_Pc_vcm_{case_suffix}")
     sys_pc_pzt = getattr(plant, f"Sys_Pc_pzt_{case_suffix}")
 
-    notch_vcm_tf = _build_notch_filter(notch_params[0], notch_params[1], notch_params[2], Ts, Mr_f)
-    notch_pzt_tf = _build_notch_filter(notch_params[3], notch_params[4], notch_params[5], Ts, Mr_f)
+    vcm_notches, pzt_notches = split_notch_params(notch_params)
+    notch_vcm_tf = _cascade_notches(vcm_notches, Ts, Mr_f)
+    notch_pzt_tf = _cascade_notches(pzt_notches, Ts, Mr_f)
 
     sys_pd_vcm = _create_digital_path(sys_pc_vcm, sys_fm_vcm, notch_vcm_tf, Ts, Mr_f)
     sys_pd_pzt = _create_digital_path(sys_pc_pzt, sys_fm_pzt, notch_pzt_tf, Ts, Mr_f)
@@ -118,32 +139,17 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
     # Increase figure size and DPI for better clarity when zoomed
     fig, axes = plt.subplots(4, 1, figsize=(14, 18), sharex=True, dpi=300)
 
-    # Extract notch parameters if provided
-    vcm_notch_freq = None
-    pzt_notch_freq = None
-    vcm_notch_bw = None
-    pzt_notch_bw = None
-    vcm_notch_depth = None
-    pzt_notch_depth = None
+    vcm_notches, pzt_notches = ([], [])
     if notch_params is not None:
-        vcm_notch_freq = notch_params[0]  # VCM center frequency
-        vcm_notch_bw = notch_params[1]    # VCM bandwidth
-        vcm_notch_depth = notch_params[2] # VCM depth
-        pzt_notch_freq = notch_params[3]  # PZT center frequency
-        pzt_notch_bw = notch_params[4]    # PZT bandwidth
-        pzt_notch_depth = notch_params[5] # PZT depth
+        vcm_notches, pzt_notches = split_notch_params(notch_params)
 
     # Plot 1: VCM Multirate Filter
     axes[0].semilogx(freq, mag(base_data['Fm_vcm']), label='VCM multi-rate filter', linewidth=2)
     axes[0].semilogx(freq, mag(notch_data['Fm_vcm']), label='VCM multi-rate filter (with new notch)', linewidth=2)
-    if vcm_notch_freq is not None:
-        axes[0].axvline(vcm_notch_freq, color='red', linestyle='--', linewidth=1.0, alpha=0.8)
+    for f0, _, _ in vcm_notches:
+        axes[0].axvline(f0, color='red', linestyle='--', linewidth=1.0, alpha=0.8)
     axes[0].set_ylabel('Magnitude (dB)')
-    # Add VCM notch parameters to title
-    if vcm_notch_freq is not None:
-        vcm_title = f'VCM Multirate Filter (New Notch: freq={vcm_notch_freq:.2f} Hz, width={vcm_notch_bw:.2f} Hz, depth={vcm_notch_depth:.2f} dB)'
-    else:
-        vcm_title = 'VCM Multirate Filter'
+    vcm_title = f'VCM Multirate Filter ({len(vcm_notches)} notch filters)' if len(vcm_notches) else 'VCM Multirate Filter'
     axes[0].set_title(vcm_title)
     axes[0].grid(True, which='both', alpha=0.3)
     axes[0].legend()
@@ -151,14 +157,10 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
     # Plot 2: PZT Multirate Filter
     axes[1].semilogx(freq, mag(base_data['Fm_pzt']), label='PZT multi-rate filter', linewidth=2)
     axes[1].semilogx(freq, mag(notch_data['Fm_pzt']), label='PZT multi-rate filter (with new notch)', linewidth=2)
-    if pzt_notch_freq is not None:
-        axes[1].axvline(pzt_notch_freq, color='green', linestyle='--', linewidth=1.0, alpha=0.8)
+    for f0, _, _ in pzt_notches:
+        axes[1].axvline(f0, color='green', linestyle='--', linewidth=1.0, alpha=0.8)
     axes[1].set_ylabel('Magnitude (dB)')
-    # Add PZT notch parameters to title
-    if pzt_notch_freq is not None:
-        pzt_title = f'PZT Multirate Filter (New Notch: freq={pzt_notch_freq:.2f} Hz, width={pzt_notch_bw:.2f} Hz, depth={pzt_notch_depth:.2f} dB)'
-    else:
-        pzt_title = 'PZT Multirate Filter'
+    pzt_title = f'PZT Multirate Filter ({len(pzt_notches)} notch filters)' if len(pzt_notches) else 'PZT Multirate Filter'
     axes[1].set_title(pzt_title)
     axes[1].grid(True, which='both', alpha=0.3)
     axes[1].legend()
@@ -166,10 +168,10 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
     # Plot 3: Open Loop
     axes[2].semilogx(freq, mag(base_data['L']), label='Open Loop L', linewidth=2)
     axes[2].semilogx(freq, mag(notch_data['L']), label='Open Loop L (with new notch)', linewidth=2)
-    if vcm_notch_freq is not None:
-        axes[2].axvline(vcm_notch_freq, color='red', linestyle='--', linewidth=1.0, alpha=0.8)
-    if pzt_notch_freq is not None:
-        axes[2].axvline(pzt_notch_freq, color='green', linestyle='--', linewidth=1.0, alpha=0.8)
+    for f0, _, _ in vcm_notches:
+        axes[2].axvline(f0, color='red', linestyle='--', linewidth=1.0, alpha=0.8)
+    for f0, _, _ in pzt_notches:
+        axes[2].axvline(f0, color='green', linestyle='--', linewidth=1.0, alpha=0.8)
     axes[2].set_ylabel('Magnitude (dB)')
     axes[2].set_title('Open Loop (L)')
     axes[2].grid(True, which='both', alpha=0.3)
@@ -178,10 +180,10 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
     # Plot 4: Sensitivity
     axes[3].semilogx(freq, mag(base_data['S']), label='Sensitivity', linewidth=2)
     axes[3].semilogx(freq, mag(notch_data['S']), label='Sensitivity (with newnotch)', linewidth=2)
-    if vcm_notch_freq is not None:
-        axes[3].axvline(vcm_notch_freq, color='red', linestyle='--', linewidth=1.0, alpha=0.8)
-    if pzt_notch_freq is not None:
-        axes[3].axvline(pzt_notch_freq, color='green', linestyle='--', linewidth=1.0, alpha=0.8)
+    for f0, _, _ in vcm_notches:
+        axes[3].axvline(f0, color='red', linestyle='--', linewidth=1.0, alpha=0.8)
+    for f0, _, _ in pzt_notches:
+        axes[3].axvline(f0, color='green', linestyle='--', linewidth=1.0, alpha=0.8)
     axes[3].set_xlabel('Frequency (Hz)')
     axes[3].set_ylabel('Magnitude (dB)')
     axes[3].set_title(f'Sensitivity Comparison')
@@ -189,7 +191,7 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
     axes[3].legend()
 
     # Add a zoomed-in inset around the notch frequency region on the Open Loop (L) plot
-    notch_freqs = [f for f in (vcm_notch_freq, pzt_notch_freq) if f is not None]
+    notch_freqs = [float(f0) for f0, _, _ in list(vcm_notches) + list(pzt_notches)]
     if len(notch_freqs) > 0:
         # Determine zoom region in frequency
         f_min = min(notch_freqs)
@@ -219,10 +221,10 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
             ax_ins = inset_axes(axes[2], width="50%", height="40%", loc='upper right')
             ax_ins.semilogx(freq[zoom_mask], base_L_db, label='Open Loop L', linewidth=2)
             ax_ins.semilogx(freq[zoom_mask], notch_L_db, label='Open Loop L (with new notch)', linewidth=2)
-            if vcm_notch_freq is not None:
-                ax_ins.axvline(vcm_notch_freq, color='red', linestyle='--', linewidth=0.8, alpha=0.8)
-            if pzt_notch_freq is not None:
-                ax_ins.axvline(pzt_notch_freq, color='green', linestyle='--', linewidth=0.8, alpha=0.8)
+            for f0, _, _ in vcm_notches:
+                ax_ins.axvline(f0, color='red', linestyle='--', linewidth=0.8, alpha=0.8)
+            for f0, _, _ in pzt_notches:
+                ax_ins.axvline(f0, color='green', linestyle='--', linewidth=0.8, alpha=0.8)
             ax_ins.set_xlim(f_min, f_max)
             ax_ins.set_ylim(y_min, y_max)
             ax_ins.grid(True, which='both', alpha=0.3)
@@ -250,24 +252,29 @@ def plot_case(freq, base_data, notch_data, output_path, case_idx, reward, perfor
     plt.close(fig)
 
 
-def save_case_summary(output_dir, timestamp, case_idx, performance, notch_params, reward):
+def save_case_summary(output_dir, timestamp, case_idx, performance, notch_params, reward, baseline_performance=None):
     """Persist notch parameters and metrics for quick review."""
     summary_path = os.path.join(output_dir, f'notch_case_{case_idx+1}_{timestamp}.txt')
     with open(summary_path, 'w', encoding='utf-8') as fp:
         fp.write(f"Case {case_idx+1} Summary - {timestamp}\n")
         fp.write(f"Reward: {reward:.4f}\n")
+        if baseline_performance is not None:
+            bsp = baseline_performance['sensitivity_peak']
+            fp.write(f"Baseline SensPeak (no notch): {bsp:.2f} dB\n")
         perf = performance
         fp.write(
             f"Performance -> PM: {perf['phase_margin']:.2f} deg, "
             f"GM: {perf['gain_margin']:.2f} dB, "
             f"SensPeak: {perf['sensitivity_peak']:.2f} dB, "
             f"TrackingErr: {perf['tracking_error']:.4f}, "
+            f"Min|1+L|: {perf.get('return_difference_min', float('nan')):.4f}, "
             f"Stability: {perf['stability']}\n"
         )
-        vcm = notch_params[:3]
-        pzt = notch_params[3:]
-        fp.write(f"VCM Notch -> f0={vcm[0]:.2f} Hz, bw={vcm[1]:.2f} Hz, depth={vcm[2]:.2f} dB\n")
-        fp.write(f"PZT Notch -> f0={pzt[0]:.2f} Hz, bw={pzt[1]:.2f} Hz, depth={pzt[2]:.2f} dB\n")
+        vcm_notches, pzt_notches = split_notch_params(notch_params)
+        for idx, notch in enumerate(vcm_notches, start=1):
+            fp.write(f"VCM Notch {idx} -> f0={notch[0]:.2f} Hz, bw={notch[1]:.2f} Hz, depth={notch[2]:.2f} dB\n")
+        for idx, notch in enumerate(pzt_notches, start=1):
+            fp.write(f"PZT Notch {idx} -> f0={notch[0]:.2f} Hz, bw={notch[1]:.2f} Hz, depth={notch[2]:.2f} dB\n")
 
 
 def main():
@@ -286,23 +293,39 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    max_steps = config.TrainingConfig().max_steps_per_episode
+
     for case_idx in range(args.cases):
-        state = env.reset()
-        action, value = agent.get_action(state, deterministic=not args.stochastic)
-        _, reward, _, info = env.step(action)
+        plant_case = args.plant_case if str(args.plant_case).startswith('c') else f'c{args.plant_case}'
+        state = build_state_for_case(env, plant_case)
+
+        # Run the full iterative episode so the agent can refine params step-by-step.
+        info = None
+        for _ in range(max_steps):
+            action, value = agent.get_action(state, deterministic=not args.stochastic)
+            state, _, done, info = env.step(action)
+            if done:
+                break
 
         notch_params = np.array(info['notch_params'])
         base_params = notch_params.copy()
-        base_params[2] = 0.0
-        base_params[5] = 0.0
+        base_params[2::3] = 0.0
 
-        base_data = compute_full_response(env, base_params, FREQ_VECTOR, args.plant_case)
-        notch_data = compute_full_response(env, notch_params, FREQ_VECTOR, args.plant_case)
+        base_data = compute_full_response(env, base_params, FREQ_VECTOR, plant_case)
+        notch_data = compute_full_response(env, notch_params, FREQ_VECTOR, plant_case)
 
         plot_path = os.path.join(
             args.output_dir,
             f"notch_analysis_case{case_idx+1}_{timestamp}.png"
         )
+        reward = -env._objective_from_performance(notch_data['performance'], notch_params) / env.reward_scale
+        reward = float(np.clip(reward, -100.0, 10.0))
+
+        baseline_sp = base_data['performance']['sensitivity_peak']
+        notch_sp = notch_data['performance']['sensitivity_peak']
+        print(f"[Case {case_idx+1}] Baseline SensPeak (no notch): {baseline_sp:.2f} dB")
+        print(f"[Case {case_idx+1}] With notch SensPeak:           {notch_sp:.2f} dB  (reduction: {baseline_sp - notch_sp:.2f} dB)")
+
         plot_case(
             FREQ_VECTOR,
             base_data,
@@ -313,12 +336,14 @@ def main():
             notch_data['performance'],
             notch_params  # Pass notch parameters to plot
         )
-        save_case_summary(args.output_dir, timestamp, case_idx, notch_data['performance'], notch_params, reward)
-        vcm = notch_params[:3]
-        pzt = notch_params[3:]
+        save_case_summary(args.output_dir, timestamp, case_idx, notch_data['performance'], notch_params, reward,
+                          baseline_performance=base_data['performance'])
         print(f"[Case {case_idx+1}] Reward={reward:.2f}, plot saved to {plot_path}")
-        print(f"  VCM Notch: freq={vcm[0]:.2f} Hz, width={vcm[1]:.2f} Hz, depth={vcm[2]:.2f} dB")
-        print(f"  PZT Notch: freq={pzt[0]:.2f} Hz, width={pzt[1]:.2f} Hz, depth={pzt[2]:.2f} dB")
+        vcm_notches, pzt_notches = split_notch_params(notch_params)
+        for idx, notch in enumerate(vcm_notches, start=1):
+            print(f"  VCM Notch {idx}: freq={notch[0]:.2f} Hz, width={notch[1]:.2f} Hz, depth={notch[2]:.2f} dB")
+        for idx, notch in enumerate(pzt_notches, start=1):
+            print(f"  PZT Notch {idx}: freq={notch[0]:.2f} Hz, width={notch[1]:.2f} Hz, depth={notch[2]:.2f} dB")
 
 
 if __name__ == "__main__":
