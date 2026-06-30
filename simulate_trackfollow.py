@@ -10,6 +10,26 @@ pa.print_system()
 Tp = 5.2697e-8  # 482 kTPI
 Ts = plant.Ts  # get Ts from the plant parameters
 
+PUBLICATION_FONTS = {
+    'title': 18,
+    'label': 16,
+    'tick': 14,
+    'legend': 14,
+}
+
+
+def apply_publication_fonts(legend=False):
+    ax = plt.gca()
+    ax.title.set_fontsize(PUBLICATION_FONTS['title'])
+    ax.xaxis.label.set_fontsize(PUBLICATION_FONTS['label'])
+    ax.yaxis.label.set_fontsize(PUBLICATION_FONTS['label'])
+    ax.tick_params(axis='both', which='major',
+                   labelsize=PUBLICATION_FONTS['tick'])
+    if legend:
+        ax.legend([f'Case {i+1}' for i in range(9)],
+                  loc="lower left",
+                  fontsize=PUBLICATION_FONTS['legend'])
+
 # Simulation
 # Load simulation results
 try:
@@ -89,7 +109,7 @@ plt.title('$y_{cp}$')
 plt.xlabel('Time [ms]')
 plt.ylabel('Amplitude [nm]')
 plt.grid(True)
-plt.legend([f'Case {i+1}' for i in range(9)], loc="lower left")
+apply_publication_fonts(legend=True)
 plt.tight_layout()
 plt.savefig(utils.get_plot_path("figure4_ycp.png"),
             dpi=600, bbox_inches='tight')
@@ -107,6 +127,7 @@ plt.title('Max of $|y_{cp}|$')
 plt.xlabel('Case number')
 plt.ylabel('Value [nm]')
 plt.grid(True)
+apply_publication_fonts()
 plt.tight_layout()
 plt.savefig(utils.get_plot_path("figure5_Max_of_abs(ycp).png"),
             dpi=600, bbox_inches='tight')
@@ -125,7 +146,7 @@ plt.title('$y_c$')
 plt.xlabel('Time [ms]')
 plt.ylabel('Amplitude [% of Track width]')
 plt.grid(True)
-plt.legend([f'Case {i+1}' for i in range(9)], loc="lower left")
+apply_publication_fonts(legend=True)
 plt.tight_layout()
 plt.savefig(utils.get_plot_path("figure6_yc.png"),
             dpi=600, bbox_inches='tight')
@@ -145,7 +166,7 @@ plt.xlabel('Frequency [Hz]')
 plt.ylabel('Amplitude [dB]')
 plt.grid(True)
 plt.xlim([10, 50e3])
-plt.legend([f'Case {i+1}' for i in range(9)], loc="lower left")
+apply_publication_fonts(legend=True)
 plt.tight_layout()
 plt.savefig(utils.get_plot_path("figure7_Amplitude_spectrum_of_yc.png"),
             dpi=600, bbox_inches='tight')
